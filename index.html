@@ -246,7 +246,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='22';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='23';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0)location.replace(location.pathname+'?v='+t)}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -484,10 +484,6 @@ function drawRivals(dt){
     if(!r.alive)continue;
     if(!r.cpu&&r.tx!=null){const k=Math.min(1,dt*12);r.x+=(r.tx-r.x)*k;r.y+=(r.ty-r.y)*k}
     drawPlane(r.x,r.y,r.flag,.55);
-  }
-  if(rivals.length&&!mp.on){   // 위쪽 가운데 참가자 줄 (솔플에서만): 탈락하면 흐려진다
-    const all=[{flag:flag,alive:state!=='over'||mpWon}].concat(rivals),x0=W/2-(all.length-1)*13;
-    all.forEach((q,i)=>drawPlane(x0+i*26,66,q.flag,q.alive?.999:.22));
   }
 }
 function drawRadar(){
