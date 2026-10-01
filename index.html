@@ -12,7 +12,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);overscroll-behavior:none;background:#05030f}
-body{margin:0;overscroll-behavior:none}
+body{margin:0;overscroll-behavior:none;position:fixed;inset:0;width:100%}
 [hidden]{display:none!important}
 img{max-width:100%}
 </style>
@@ -570,6 +570,10 @@ function closeTitle(){$('title').hidden=true}
 $('title').addEventListener('click',closeTitle);
 $('title').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.stopPropagation();e.preventDefault();closeTitle()}});
 renderBoard();
+
+// 인앱 브라우저에서 드래그가 창을 끌어내리지 않게: 순위판과 입력칸 밖의 터치 이동은 브라우저에 넘기지 않는다
+document.addEventListener('touchmove',e=>{if(!e.target.closest('#board')&&e.target.tagName!=='INPUT')e.preventDefault()},{passive:false});
+$('pad').addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 
 resize();reset();
 // 시작 화면 뒤에 보이는 예시 전장
