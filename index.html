@@ -165,7 +165,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #mpMsg,#mpLMsg{color:var(--amber);font-size:13px;text-align:center;min-height:18px}
 #mpName{align-self:flex-start;width:180px;padding:10px;border-radius:8px;border:1.5px solid var(--cyan);background:#06121a;color:var(--ink);
   font:16px var(--mono);user-select:text;-webkit-user-select:text}
-#mpB{padding:10px 16px;border-radius:8px;border:1.5px solid var(--cyan);background:transparent;color:var(--cyan);font:500 12px var(--display);cursor:pointer}
+#mpB{padding:14px 34px;border-radius:10px;border:2px solid var(--amber);background:#3a2408;color:var(--ink);font:800 16px var(--display);cursor:pointer;box-shadow:0 0 18px rgba(255,164,36,.45)}
 #res{display:flex;flex-direction:column;gap:4px;font-size:14px;min-width:220px}
 #res div{display:flex;gap:8px;justify-content:space-between}
 #res .w{color:var(--amber)}
@@ -204,10 +204,11 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
       <div id="flags" role="group" aria-label="국기 선택"></div>
     </div>
     <button id="go" type="button">출격</button>
+    <button id="mpB" type="button">멀티플레이</button>
     <button id="chg" type="button" hidden>국가 바꾸기</button>
     <div id="res" hidden></div>
     <button id="rankB" type="button">순위 보기</button>
-    <button id="mpB" type="button">멀티플레이</button>
+
   </div>
   <div id="board" hidden>
     <header><h2>RANKING</h2><button id="bClose" type="button">닫기</button></header>
@@ -458,7 +459,7 @@ function boom(x,y){for(let i=0;i<30;i++){const a=Math.random()*7,v=40+Math.rando
   parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,c:i%2?'#fff':'#ffa424'})}}
 function initCpus(){
   const fl=FLAGS.filter(c=>c!==flag).sort(()=>Math.random()-.5).slice(0,4);
-  rivals=fl.map((c,i)=>({id:'cpu'+i,flag:c,x:W*(.2+.2*i),y:H*(i%2?.28:.72),vx:0,vy:0,alive:true,cpu:true,
+  rivals=fl.map((c,i)=>({id:'cpu'+i,flag:c,x:W/2+Math.cos(i*Math.PI/2+Math.PI/4)*26,y:H/2+Math.sin(i*Math.PI/2+Math.PI/4)*26,vx:0,vy:0,alive:true,cpu:true,
     dieAt:15*(i+1),wx:W/2,wy:H/2,wt:0}));
 }
 function updateCpus(dt){
@@ -480,7 +481,7 @@ function drawRivals(dt){
     if(!r.cpu&&r.tx!=null){const k=Math.min(1,dt*12);r.x+=(r.tx-r.x)*k;r.y+=(r.ty-r.y)*k}
     drawPlane(r.x,r.y,r.flag,.55);
   }
-  if(rivals.length){   // 위쪽 가운데 참가자 줄: 탈락하면 흐려진다
+  if(rivals.length&&!mp.on){   // 위쪽 가운데 참가자 줄 (솔플에서만): 탈락하면 흐려진다
     const all=[{flag:flag,alive:state!=='over'||mpWon}].concat(rivals),x0=W/2-(all.length-1)*13;
     all.forEach((q,i)=>drawPlane(x0+i*26,66,q.flag,q.alive?.999:.22));
   }
@@ -801,13 +802,13 @@ function mpTick(dt){
 }
 function mpDied(){
   mp.myT=Math.round(time*100)/100;
-  if(mp.ref)mp.ref.child('players/'+myId).update({alive:false,t:mp.myT});
   $('ovT').textContent='GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
   $('ovP').hidden=false;$('ovP').textContent='다른 파일럿이 끝날 때까지 기다리는 중…';
   $('res').hidden=true;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('pick').hidden=true;$('chg').hidden=true;
   $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=true;
   setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},650);
   mpCheckEnd();
+  if(mp.ref)mp.ref.child('players/'+myId).update({alive:false,t:mp.myT});   // 화면을 다 만든 뒤에 알린다
 }
 function mpCheckEnd(){
   if(mp.ended||state==='count')return;
