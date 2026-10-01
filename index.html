@@ -172,7 +172,12 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #res{display:flex;flex-direction:column;gap:4px;font-size:14px;min-width:220px}
 #res div{display:flex;gap:8px;justify-content:space-between}
 #res .w{color:var(--amber)}
-#homeBg{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;z-index:-1;opacity:.9}
+#homeBg{position:absolute;left:0;top:0;width:100%;max-width:none;z-index:-1}
+#homeBlur{position:absolute;inset:-24px;background:url(home.jpg) center/cover;filter:blur(22px) brightness(.85);z-index:-2}
+#overlay.art{background:#05030f;overflow:hidden}
+#overlay.home.art #go,#overlay.home.art #mpB,#overlay.home.art #rankB{position:absolute;margin:0;padding:0;min-width:0;border:0;border-radius:16px;
+  background:transparent;box-shadow:none;color:transparent;font-size:0;-webkit-tap-highlight-color:transparent}
+#overlay.home.art #go:active,#overlay.home.art #mpB:active,#overlay.home.art #rankB:active{background:rgba(255,255,255,.18)}
 #overlay.home{background:rgba(5,3,15,.25);gap:16px}
 #overlay.home #go,#overlay.home #mpB,#overlay.home #rankB{width:min(300px,82%);padding:22px 10px;border-radius:14px;border-width:2.5px;
   font:800 22px var(--display);letter-spacing:.06em}
@@ -204,7 +209,8 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     <div id="mark" hidden></div>
   </div>
   <div id="overlay">
-    <img id="homeBg" src="title.jpg" alt="" onerror="this.dataset.bad=1;this.hidden=true">
+    <div id="homeBlur"></div>
+    <img id="homeBg" src="home.jpg" alt="" onerror="this.dataset.bad=1;this.hidden=true;if(window.__home)window.__home()">
     <h1 id="ovT">SPACE SURVIVOR</h1>
     <div class="big" id="ovS" hidden>0</div>
     <p id="ovP">날아오는 미사일을 전부 피하세요.<br>몇 초를 버티는지가 기록입니다.<br>한 번 맞으면 끝입니다.</p>
@@ -261,7 +267,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='29';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='30';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -711,7 +717,6 @@ $('regB').addEventListener('click',()=>{const n=$('nick').value.trim().slice(0,1
   myName=n;try{localStorage.setItem('ss_name',n)}catch(e){}$('reg').hidden=true;$('myRec').hidden=true;submit(Math.max(pending,best))});
 $('nick').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')$('regB').click()});
 $('nick').addEventListener('keyup',e=>e.stopPropagation());
-homeScreen();
 renderBoard();
 
 // ───── 멀티플레이 (Realtime Database) ─────
@@ -726,15 +731,26 @@ function rt(){
   try{rtdb=firebase.database();rtdb.ref('.info/serverTimeOffset').on('value',s=>{mp.off=s.val()||0})}catch(e){rtdb=null}
   return rtdb;
 }
-function plain(){$('overlay').classList.remove('home');$('homeBg').hidden=true;$('ovT').hidden=false;$('homeB').hidden=true}
+// 첫 화면 그림 속 버튼 위치 (그림 941x1375 기준 [x,y,폭,높이]). 그림은 화면에 맞춰 통째로 줄어들고, 투명한 버튼이 그 위에 정확히 겹친다
+const IW=941,IH=1375,HOT={go:[92,415,756,197],mpB:[85,635,767,187],rankB:[85,853,767,189]};
+function layoutHome(){
+  const o=$('overlay');if(!o.classList.contains('art'))return;
+  const w=o.clientWidth,h=o.clientHeight;
+  // 그림 전체가 보이게 맞추되, 세로로 긴 화면에서는 좌우를 7%씩까지 잘라 더 크게 채운다 (버튼은 잘리지 않는 범위)
+  const k=Math.max(w/IW,Math.min(h/IH,w/(IW*.86))),ox=(w-IW*k)/2,oy=(h-IH*k)/2,b=$('homeBg').style;
+  b.width=IW*k+'px';b.height=IH*k+'px';b.left=ox+'px';b.top=oy+'px';
+  for(const id in HOT){const r=HOT[id],e=$(id).style;e.left=ox+r[0]*k+'px';e.top=oy+r[1]*k+'px';e.width=r[2]*k+'px';e.height=r[3]*k+'px'}
+}
+addEventListener('resize',layoutHome);
+function plain(){$('overlay').classList.remove('home','art');$('homeBlur').hidden=true;for(const id in HOT)$(id).style.cssText='';$('homeBg').hidden=true;$('ovT').hidden=false;$('homeB').hidden=true}
 // 첫 화면: 시작 그림 위에 큰 버튼 세 개 (출격 / 멀티플레이 / 스코어보드)
 function homeScreen(){
   state='ready';rivals=[];mpWon=false;
   const bad=$('homeBg').dataset.bad;
-  $('overlay').classList.add('home');$('homeBg').hidden=!!bad;$('ovT').hidden=!bad;$('ovT').textContent='SPACE SURVIVOR';
+  $('overlay').classList.add('home');$('overlay').classList.toggle('art',!bad);$('homeBlur').hidden=!!bad;$('homeBg').hidden=!!bad;$('ovT').hidden=!bad;$('ovT').textContent='SPACE SURVIVOR';
   $('ovS').hidden=true;$('res').hidden=true;$('gap').hidden=true;$('ovP').hidden=true;$('pick').hidden=true;$('chg').hidden=true;$('homeB').hidden=true;
   $('go').hidden=false;$('go').textContent='출격';$('mpB').hidden=false;$('rankB').hidden=false;
-  $('overlay').hidden=false;
+  $('overlay').hidden=false;layoutHome();
 }
 // 국기 고르기: 국기를 누르면 바로 출격
 function showPick(){
@@ -918,6 +934,7 @@ document.addEventListener('touchmove',e=>{if(!e.target.closest('#board,#mp')&&e.
 $('pad').addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 
 resize();reset();
+homeScreen();window.__home=()=>{if($('overlay').classList.contains('home'))homeScreen()};
 try{enterInvited()}catch(e){}
 // 시작 화면 뒤에 보이는 예시 전장
 for(let i=0;i<26;i++){spawn();const o=objs[objs.length-1];const k=1.5+Math.random()*3;o.x+=o.vx*k;o.y+=o.vy*k}
