@@ -18,6 +18,7 @@ img{max-width:100%}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800&family=Share+Tech+Mono&display=swap">
 <style>
@@ -145,6 +146,29 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .row.first .tm,.row.first .nm{color:var(--amber)}
 #natMore{align-self:center;background:transparent;border-color:var(--dim)}
 #bEmpty{color:var(--dim);font-size:13px;text-align:center;padding:14px 0}
+#mp{position:absolute;inset:0;z-index:8;background:rgba(5,3,15,.97);padding:14px 16px;overflow-y:auto;touch-action:pan-y}
+#mpList,#mpRoom{display:flex;flex-direction:column;gap:10px}
+#mp header{display:flex;justify-content:space-between;align-items:center}
+#mp h2{margin:0;font:800 20px var(--display);letter-spacing:.08em;text-shadow:0 0 12px var(--cyan)}
+#mp h3{margin:6px 0 0;font:800 12px var(--display);letter-spacing:.16em;color:var(--cyan)}
+.mpb{padding:10px 16px;border-radius:8px;border:1.5px solid var(--cyan);background:#0b3946;color:var(--ink);font:500 12px var(--display);cursor:pointer}
+.mpb:disabled{opacity:.4;cursor:default}
+#mpStart{padding:14px;font-size:15px;font-weight:800}
+#rooms{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#rooms button{padding:18px 8px;border-radius:10px;border:1.5px solid var(--cyan);background:#0c1c28;color:var(--ink);
+  font:800 16px var(--display);cursor:pointer}
+#rooms button small{display:block;margin-top:6px;font:12px var(--mono);color:var(--dim)}
+#mpFlags{display:grid;grid-template-columns:repeat(5,44px);gap:8px;justify-content:center}
+#mpFlags button{width:44px;height:44px;padding:0;border-radius:50%;border:2px solid var(--panel-edge);background:#0c1c28;
+  font-size:24px;line-height:1;cursor:pointer;font-family:"Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",sans-serif}
+#mpFlags button[aria-pressed="true"]{border-color:var(--cyan);background:#0b3946;box-shadow:0 0 14px var(--cyan)}
+#mpMsg,#mpLMsg{color:var(--amber);font-size:13px;text-align:center;min-height:18px}
+#mpName{align-self:flex-start;width:180px;padding:10px;border-radius:8px;border:1.5px solid var(--cyan);background:#06121a;color:var(--ink);
+  font:16px var(--mono);user-select:text;-webkit-user-select:text}
+#mpB{padding:10px 16px;border-radius:8px;border:1.5px solid var(--cyan);background:transparent;color:var(--cyan);font:500 12px var(--display);cursor:pointer}
+#res{display:flex;flex-direction:column;gap:4px;font-size:14px;min-width:220px}
+#res div{display:flex;gap:8px;justify-content:space-between}
+#res .w{color:var(--amber)}
 #go{margin-top:8px;padding:14px 34px;border-radius:10px;border:2px solid var(--cyan);background:#0b3946;
   color:var(--ink);font:800 16px var(--display);cursor:pointer;box-shadow:0 0 18px rgba(34,230,255,.5)}
 </style>
@@ -181,7 +205,9 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     </div>
     <button id="go" type="button">출격</button>
     <button id="chg" type="button" hidden>국가 바꾸기</button>
+    <div id="res" hidden></div>
     <button id="rankB" type="button">순위 보기</button>
+    <button id="mpB" type="button">멀티플레이</button>
   </div>
   <div id="board" hidden>
     <header><h2>RANKING</h2><button id="bClose" type="button">닫기</button></header>
@@ -191,6 +217,25 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     <h3>PILOTS · 개인 순위</h3>
     <div class="rows" id="plyL"></div>
     <div id="bEmpty" hidden></div>
+  </div>
+  <div id="mp" hidden>
+    <div id="mpList">
+      <header><h2>MULTIPLAY</h2><button class="mpb" id="mpClose" type="button">닫기</button></header>
+      <h3>아이디</h3>
+      <input id="mpName" type="text" maxlength="12" placeholder="아이디 (최대 12자)" aria-label="멀티플레이 아이디" autocomplete="off">
+      <h3>방 선택 · 한 방에 5명까지</h3>
+      <div id="rooms"></div>
+      <div id="mpLMsg"></div>
+    </div>
+    <div id="mpRoom" hidden>
+      <header><h2 id="mpTitle"></h2><button class="mpb" id="mpLeave" type="button">나가기</button></header>
+      <h3>PILOTS</h3>
+      <div class="rows" id="mpPl"></div>
+      <h3>국기를 고르면 준비 완료</h3>
+      <div id="mpFlags" role="group" aria-label="국기 선택"></div>
+      <div id="mpMsg"></div>
+      <button class="mpb" id="mpStart" type="button">게임 시작</button>
+    </div>
   </div>
   <div id="title" role="button" tabindex="0" aria-label="탭해서 시작">
     <img src="title.jpg" alt="스페이스 서바이버. 탭해서 시작" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
@@ -303,6 +348,7 @@ function pattern(){
 }
 function update(dt){
   time+=dt;
+  if(mp.on)mpTick(dt);else updateCpus(dt);
   // 닷지 방식: 비행기에 최고 속도가 있다. 손가락은 목표점만 옮기고, 비행기는 SHIP_V 로 따라간다
   let ix=0,iy=0;
   if(keys.ArrowLeft||keys.a)ix-=1;if(keys.ArrowRight||keys.d)ix+=1;
@@ -343,6 +389,7 @@ function die(){
   state='over';Music.stop();
   for(let i=0;i<40;i++){const a=Math.random()*7,s=40+Math.random()*220;
     parts.push({x:ship.x,y:ship.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0,c:i%2?'#fff':'#ffa424'})}
+  if(mp.on){mpDied();return}
   const fin=Math.round(time*100)/100;
   const rec=fin>best;if(rec){best=fin;try{localStorage.setItem('stargraze_best_t',best)}catch(e){}}
   $('bestV').textContent=best.toFixed(2);$('scoreV').textContent=fin.toFixed(2);
@@ -376,18 +423,8 @@ function draw(dt){
       ctx.beginPath();ctx.moveTo(trail[i-1].x,trail[i-1].y);ctx.lineTo(trail[i].x,trail[i].y);ctx.stroke()}
     ctx.globalAlpha=1;ctx.shadowBlur=0;
   }
-  if(ship&&state!=='over'){
-    // 방향 없는 점 기체: 흰 점 + 빨간 날개 (갤러그풍 도트, 회전 없음)
-    ctx.save();ctx.translate(Math.round(ship.x),Math.round(ship.y));
-    ctx.shadowColor='#ffffff';ctx.shadowBlur=12;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,9,0,7);ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.save();ctx.beginPath();ctx.arc(0,0,8,0,7);ctx.clip();   // 국기를 점 모양으로 잘라 넣기
-    const fi=flagImg(flag);
-    if(fi){const k=16/fi.h,w=fi.w*k;ctx.drawImage(fi.c,fi.x,fi.y,fi.w,fi.h,-w/2,-8,w,16)} // 국기 정중앙을 점에 맞춤
-    ctx.restore();
-    ctx.restore();
-  }
+  drawRivals(dt);
+  if(ship&&state!=='over')drawPlane(ship.x,ship.y,flag,1);
   for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.t+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
     if(p.t>.9){parts.splice(i,1);continue}
     ctx.globalAlpha=1-p.t/.9;ctx.fillStyle=p.c;ctx.fillRect(p.x-2,p.y-2,4,4)}
@@ -403,6 +440,50 @@ function draw(dt){
     for(let j=0;j<12;j++){const a=j/12*Math.PI*2,r1=30+k*14,r2=r1+6;ctx.beginPath();
       ctx.moveTo(p.x+Math.cos(a)*r1*1.3,p.y-7-k*26+Math.sin(a)*r1*.7);ctx.lineTo(p.x+Math.cos(a)*r2*1.3,p.y-7-k*26+Math.sin(a)*r2*.7);ctx.stroke()}}
   ctx.globalAlpha=1;
+  if(state==='count'){ctx.font='800 84px Orbitron, Arial Black, sans-serif';ctx.textAlign='center';ctx.fillStyle='#d8f6ff';
+    ctx.shadowColor='#22e6ff';ctx.shadowBlur=20;ctx.fillText(countN,W/2,H/2+30);ctx.shadowBlur=0}
+}
+// 국기 점 기체 (방향 없음). al<1 이면 반투명한 경쟁자
+function drawPlane(x,y,f,al){
+  ctx.save();ctx.globalAlpha=al;ctx.translate(Math.round(x),Math.round(y));
+  if(al===1){ctx.shadowColor='#ffffff';ctx.shadowBlur=12}
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,9,0,7);ctx.fill();ctx.shadowBlur=0;
+  ctx.beginPath();ctx.arc(0,0,8,0,7);ctx.clip();
+  const fi=flagImg(f);if(fi){const k=16/fi.h,w=fi.w*k;ctx.drawImage(fi.c,fi.x,fi.y,fi.w,fi.h,-w/2,-8,w,16)}
+  ctx.restore();
+}
+// ───── 경쟁자: 솔플은 CPU 4대(15초마다 한 대씩 탈락), 멀티는 다른 사람. 서로 부딪히지 않고 내 판정과 무관 ─────
+let rivals=[],mpWon=false,countN=0;
+function boom(x,y){for(let i=0;i<30;i++){const a=Math.random()*7,v=40+Math.random()*200;
+  parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,c:i%2?'#fff':'#ffa424'})}}
+function initCpus(){
+  const fl=FLAGS.filter(c=>c!==flag).sort(()=>Math.random()-.5).slice(0,4);
+  rivals=fl.map((c,i)=>({id:'cpu'+i,flag:c,x:W*(.2+.2*i),y:H*(i%2?.28:.72),vx:0,vy:0,alive:true,cpu:true,
+    dieAt:15*(i+1),wx:W/2,wy:H/2,wt:0}));
+}
+function updateCpus(dt){
+  for(const r of rivals){
+    if(!r.cpu||!r.alive)continue;
+    if(time>=r.dieAt){r.alive=false;boom(r.x,r.y);continue}
+    r.wt-=dt;if(r.wt<=0){r.wt=.8+Math.random()*1.5;r.wx=W*(.1+Math.random()*.8);r.wy=H*(.1+Math.random()*.8)}
+    let ax=r.wx-r.x,ay=r.wy-r.y;const d0=Math.hypot(ax,ay)||1;ax/=d0;ay/=d0;
+    for(const o of objs){const dx=r.x-o.x,dy=r.y-o.y,d=Math.hypot(dx,dy);   // 가까운 미사일에서 멀어지려는 힘
+      if(d<70&&d>0){const k=(70-d)/70*4;ax+=dx/d*k;ay+=dy/d*k}}
+    const m=Math.hypot(ax,ay)||1,v=SHIP_V*.85,e=Math.min(1,dt*8);
+    r.vx+=(ax/m*v-r.vx)*e;r.vy+=(ay/m*v-r.vy)*e;
+    r.x=Math.min(W-10,Math.max(10,r.x+r.vx*dt));r.y=Math.min(H-10,Math.max(10,r.y+r.vy*dt));
+  }
+}
+function drawRivals(dt){
+  for(const r of rivals){
+    if(!r.alive)continue;
+    if(!r.cpu&&r.tx!=null){const k=Math.min(1,dt*12);r.x+=(r.tx-r.x)*k;r.y+=(r.ty-r.y)*k}
+    drawPlane(r.x,r.y,r.flag,.55);
+  }
+  if(rivals.length){   // 위쪽 가운데 참가자 줄: 탈락하면 흐려진다
+    const all=[{flag:flag,alive:state!=='over'||mpWon}].concat(rivals),x0=W/2-(all.length-1)*13;
+    all.forEach((q,i)=>drawPlane(x0+i*26,66,q.flag,q.alive?.999:.22));
+  }
 }
 function drawRadar(){
   rx.setTransform(dpr,0,0,dpr,0,0);rx.clearRect(0,0,RW,RH);
@@ -421,6 +502,8 @@ function drawRadar(){
 let last=0;
 function frame(t){
   const dt=Math.min(.05,(t-last)/1000||0);last=t;
+  if(state==='count'){const left=mp.startAt-(Date.now()+mp.off);
+    if(left<=0){state='play';Music.start()}else countN=Math.ceil(left/1000)}
   if(state==='play')update(dt);
   draw(state==='paused'?0:dt);
   requestAnimationFrame(frame);
@@ -458,6 +541,7 @@ const Music=(()=>{
           nbuf=ac.createBuffer(1,ac.sampleRate*.3,ac.sampleRate);const d=nbuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
         ac.resume();step=0;run()}catch(e){}},
     stop(){clearInterval(timer);timer=null},
+    unlock(){const t=timer;this.start();if(!t)this.stop()},   // 사용자 탭 안에서 오디오를 미리 깨워 둔다
     resume(){if(on&&ac&&!timer)run()},
     toggle(){on=!on;if(!on)this.stop();return on},
     tempo(l){ST=60/(152+l*16)/4},                      // 0단계 152, 1단계 168, 2단계 184 BPM
@@ -465,18 +549,18 @@ const Music=(()=>{
       tone('square',96,t,.05,.07);tone('square',103,t+.04,.07,.06)}
   };
 })();
-function start(){reset();state='play';$('overlay').hidden=true;Music.start()}
+function start(){reset();initCpus();mpWon=false;state='play';$('overlay').hidden=true;Music.start()}
 $('snd').addEventListener('click',()=>{const o=Music.toggle();$('snd').style.opacity=o?1:.4;$('snd').setAttribute('aria-pressed',o);
   if(o&&state==='play')Music.start()});
 function pause(){
-  if(state==='play'){state='paused';Music.stop();$('ovT').textContent='PAUSED';$('ovS').hidden=true;
+  if(state==='play'&&!mp.on){state='paused';Music.stop();$('ovT').textContent='PAUSED';$('ovS').hidden=true;
     $('ovP').textContent='잠시 멈췄습니다.';$('pick').hidden=true;$('chg').hidden=true;
     $('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('go').textContent='계속';$('overlay').hidden=false}
 }
-$('go').addEventListener('click',()=>{if(state==='paused'){state='play';$('overlay').hidden=true;Music.resume()}else start()});
+$('go').addEventListener('click',()=>{if(state==='paused'){state='play';$('overlay').hidden=true;Music.resume()}else if(mp.on){$('overlay').hidden=true;showRoom()}else start()});
 $('pause').addEventListener('click',pause);
 $('chg').addEventListener('click',()=>{$('pick').hidden=false;$('chg').hidden=true});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(mp.on&&state==='play')die();else pause()}});
 
 // 조이스틱
 const stick=$('pad');let pid=null;
@@ -507,7 +591,8 @@ addEventListener('resize',resize);
 
 // ───── 순위판 (Firestore, 로그인 없음, 실시간) ─────
 // scores/{기기ID}: 기기당 최고 기록 하나 {name, flag, time, ts}   nations/{국가코드}: 그 나라 최고 기록 {name, time, ts}
-const CFG={apiKey:"AIzaSyCdo9ftAg6FdHUd2M0EKbwANrtfm4qlP6w",authDomain:"space-survivor-c7efe.firebaseapp.com",
+const DB_URL="";   // Realtime Database 주소 (멀티플레이용). 비어 있으면 멀티플레이는 준비 중으로 표시
+const CFG={databaseURL:DB_URL,apiKey:"AIzaSyCdo9ftAg6FdHUd2M0EKbwANrtfm4qlP6w",authDomain:"space-survivor-c7efe.firebaseapp.com",
   projectId:"space-survivor-c7efe",storageBucket:"space-survivor-c7efe.firebasestorage.app",
   messagingSenderId:"926732488913",appId:"1:926732488913:web:07684bb42b37c4c1dbf5f0"};
 const NAMES={KR:'대한민국',US:'미국',JP:'일본',CN:'중국',GB:'영국',DE:'독일',FR:'프랑스',IT:'이탈리아',ES:'스페인',CA:'캐나다',
@@ -589,8 +674,171 @@ $('title').addEventListener('click',closeTitle);
 $('title').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.stopPropagation();e.preventDefault();closeTitle()}});
 renderBoard();
 
+// ───── 멀티플레이 (Realtime Database) ─────
+// 판정은 각자 자기 폰에서 하고, 서로의 위치와 생존 여부만 주고받는다. 방에 들어갈 때만 연결하므로 솔플은 연결 수에 잡히지 않는다
+// rooms/{방}/meta {state,startAt,round}   rooms/{방}/players/{기기ID} {name,flag,joined,alive,t}   rooms/{방}/pos/{기기ID} {x,y}
+const ROOMS=[['mars','화성 MARS'],['mercury','수성 MERCURY'],['jupiter','목성 JUPITER'],['earth','지구 EARTH']];
+const mp={on:false,room:'',ref:null,players:{},meta:{},off:0,startAt:0,round:-1,pubT:0,listT:null,ended:true,myT:0};
+let rtdb=null;
+function rt(){
+  if(rtdb)return rtdb;
+  if(!DB_URL||!window.firebase||!firebase.database)return null;
+  try{rtdb=firebase.database();rtdb.ref('.info/serverTimeOffset').on('value',s=>{mp.off=s.val()||0})}catch(e){rtdb=null}
+  return rtdb;
+}
+function homeScreen(){
+  state='ready';rivals=[];mpWon=false;
+  $('ovT').textContent='SPACE SURVIVOR';$('ovS').hidden=true;$('res').hidden=true;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;
+  $('ovP').hidden=false;$('ovP').innerHTML='날아오는 미사일을 전부 피하세요.<br>몇 초를 버티는지가 기록입니다.<br>한 번 맞으면 끝입니다.';
+  $('pick').hidden=false;$('chg').hidden=true;$('go').hidden=false;$('go').textContent='출격';$('rankB').hidden=false;$('mpB').hidden=false;
+  [...$('flags').children].forEach(x=>x.setAttribute('aria-pressed',x.id==='flag-'+flag));
+  $('overlay').hidden=false;
+}
+ROOMS.forEach(r=>{const b=document.createElement('button');b.type='button';b.id='room-'+r[0];
+  b.appendChild(document.createTextNode(r[1]));const sm=document.createElement('small');sm.textContent='–';b.appendChild(sm);
+  b.addEventListener('click',()=>joinRoom(r[0]));$('rooms').appendChild(b)});
+function refreshRooms(){
+  if(!rtdb)return;
+  rtdb.ref('rooms').once('value').then(s=>{const v=s.val()||{};
+    ROOMS.forEach(r=>{const d=v[r[0]]||{},n=Object.keys(d.players||{}).length,playing=n>0&&(d.meta||{}).state==='play';
+      $('room-'+r[0]).lastChild.textContent=n+'/5 · '+(playing?'게임 중':'대기 중')});
+  }).catch(()=>{$('mpLMsg').textContent='방 정보를 불러오지 못했습니다.'});
+}
+function mpOpen(){
+  Music.unlock();
+  $('mp').hidden=false;$('mpList').hidden=false;$('mpRoom').hidden=true;$('mpName').value=myName;$('mpLMsg').textContent='';
+  if(!rt()){$('mpLMsg').textContent='멀티플레이 서버를 준비하고 있습니다. 곧 열립니다.';return}
+  rtdb.goOnline();refreshRooms();clearInterval(mp.listT);mp.listT=setInterval(refreshRooms,4000);
+}
+function mpCloseList(){clearInterval(mp.listT);if(rtdb)rtdb.goOffline();$('mp').hidden=true}
+function joinRoom(id){
+  if(!rtdb)return;
+  const n=$('mpName').value.trim().slice(0,12);
+  if(!n){$('mpLMsg').textContent='아이디를 먼저 입력해 주세요.';$('mpName').focus();return}
+  myName=n;try{localStorage.setItem('ss_name',n)}catch(e){}
+  const ref=rtdb.ref('rooms/'+id);
+  ref.once('value').then(s=>{
+    const v=s.val()||{},pl=v.players||{},cnt=Object.keys(pl).length;
+    if(cnt>=5&&!pl[myId]){$('mpLMsg').textContent='방이 가득 찼습니다.';return}
+    if(cnt>0&&(v.meta||{}).state==='play'){$('mpLMsg').textContent='게임 중인 방입니다. 끝난 뒤에 들어갈 수 있습니다.';return}
+    clearInterval(mp.listT);
+    mp.on=true;mp.room=id;mp.ref=ref;mp.players={};mp.meta={};mp.ended=true;mp.round=(v.meta||{}).round||0;
+    if(cnt===0)ref.child('meta').set({state:'lobby',round:mp.round,startAt:0});
+    const me=ref.child('players/'+myId);
+    me.onDisconnect().remove();ref.child('pos/'+myId).onDisconnect().remove();
+    me.set({name:myName,flag:'',joined:firebase.database.ServerValue.TIMESTAMP,alive:false,t:0});
+    ref.child('players').on('value',mpOnPlayers);ref.child('meta').on('value',mpOnMeta);
+    ref.child('pos').on('child_added',mpOnPos);ref.child('pos').on('child_changed',mpOnPos);
+    state='ready';rivals=[];$('overlay').hidden=true;showRoom();
+  }).catch(()=>{$('mpLMsg').textContent='방에 들어가지 못했습니다. 잠시 뒤 다시 시도해 주세요.'});
+}
+function mpLeave(){
+  if(mp.ref){const r=mp.ref;r.child('players').off();r.child('meta').off();r.child('pos').off();
+    r.child('players/'+myId).onDisconnect().cancel();r.child('pos/'+myId).onDisconnect().cancel();
+    r.child('players/'+myId).remove();r.child('pos/'+myId).remove()}
+  mp.on=false;mp.ref=null;mp.ended=true;Music.stop();
+  if(rtdb)setTimeout(()=>{if(!mp.on)rtdb.goOffline()},800);
+  $('mp').hidden=true;homeScreen();
+}
+function sorted(){return Object.keys(mp.players).sort((a,b)=>(mp.players[a].joined||0)-(mp.players[b].joined||0)||(a<b?-1:1))}
+function isHost(){return sorted()[0]===myId}
+function showRoom(){$('mp').hidden=false;$('mpList').hidden=true;$('mpRoom').hidden=false;renderRoom()}
+FLAGS.forEach(c=>{const b=document.createElement('button');b.type='button';b.id='mpflag-'+c;b.textContent=flagOf(c);b.setAttribute('aria-label',c);
+  b.addEventListener('click',()=>{if(!mp.ref)return;Music.unlock();flag=c;try{localStorage.setItem('stargraze_flag',c)}catch(e){}
+    mp.ref.child('players/'+myId+'/flag').set(c)});
+  $('mpFlags').appendChild(b)});
+function renderRoom(){
+  if(!mp.on||$('mpRoom').hidden||$('mp').hidden)return;
+  const ids=sorted(),pl=$('mpPl');pl.textContent='';
+  $('mpTitle').textContent=(ROOMS.find(r=>r[0]===mp.room)||['',''])[1];
+  const cnt={};ids.forEach(id=>{const f=mp.players[id].flag;if(f)cnt[f]=(cnt[f]||0)+1});
+  ids.forEach((id,i)=>{const q=mp.players[id];
+    pl.appendChild(mkRow(i===0?'★':'',q.flag?flagOf(q.flag):'',q.name||'',i===0?'방장':'',q.flag?(cnt[q.flag]>1?'국기 중복':'준비 완료'):'고르는 중',id===myId?'me':''))});
+  const mine=(mp.players[myId]||{}).flag||'';
+  [...$('mpFlags').children].forEach(x=>x.setAttribute('aria-pressed',x.id==='mpflag-'+mine));
+  const dup=Object.keys(cnt).some(f=>cnt[f]>1),allReady=ids.length>0&&ids.every(id=>mp.players[id].flag),host=isHost();
+  const ok=!dup&&allReady&&ids.length>=2;
+  $('mpMsg').textContent=dup?'같은 국기가 있습니다. 국기를 바꿔 주세요.':!allReady?'모두 국기를 고르면 시작할 수 있습니다.':
+    ids.length<2?'두 명 이상 모이면 시작할 수 있습니다.':host?'게임 시작을 눌러 주세요.':'방장이 시작하기를 기다리는 중입니다.';
+  $('mpStart').hidden=!host;$('mpStart').disabled=!ok;
+}
+function mpStartClick(){
+  if(!mp.ref||!isHost())return;
+  const up={meta:{state:'play',startAt:Date.now()+mp.off+4000,round:(mp.meta.round||0)+1}};
+  Object.keys(mp.players).forEach(id=>{up['players/'+id+'/alive']=true;up['players/'+id+'/t']=0});
+  mp.ref.update(up);
+}
+function mpOnMeta(s){
+  mp.meta=s.val()||{};
+  if(mp.meta.state==='play'&&mp.meta.round!==mp.round&&mp.meta.startAt-(Date.now()+mp.off)>-3000)mpBegin();else renderRoom();
+}
+function mpBegin(){
+  mp.round=mp.meta.round;mp.startAt=mp.meta.startAt;mp.ended=false;mpWon=false;mp.myT=0;mp.pubT=0;
+  $('mp').hidden=true;$('overlay').hidden=true;
+  reset();
+  rivals=Object.keys(mp.players).filter(id=>id!==myId).map(id=>({id:id,flag:mp.players[id].flag,name:mp.players[id].name,
+    x:W/2,y:H/2,tx:null,ty:null,alive:true,cpu:false,t:0}));
+  state='count';
+}
+function mpOnPos(s){
+  const r=rivals.find(q=>q.id===s.key),v=s.val();if(!r||!v)return;
+  const first=r.tx==null;r.tx=v.x*W;r.ty=v.y*H;if(first){r.x=r.tx;r.y=r.ty}
+}
+function mpOnPlayers(s){
+  mp.players=s.val()||{};
+  if(!mp.ended){
+    for(const r of rivals){const q=mp.players[r.id];
+      if(r.alive&&state!=='count'&&(!q||q.alive===false)){r.alive=false;r.t=q?q.t:time;boom(r.x,r.y)}
+      else if(r.alive&&!q){r.alive=false;r.t=0}}
+    mpCheckEnd();
+  }
+  renderRoom();
+}
+function mpTick(dt){
+  mp.pubT-=dt;
+  if(mp.pubT<=0&&mp.ref){mp.pubT=.12;mp.ref.child('pos/'+myId).set({x:+(ship.x/W).toFixed(3),y:+(ship.y/H).toFixed(3)})}
+  mpCheckEnd();
+}
+function mpDied(){
+  mp.myT=Math.round(time*100)/100;
+  if(mp.ref)mp.ref.child('players/'+myId).update({alive:false,t:mp.myT});
+  $('ovT').textContent='GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
+  $('ovP').hidden=false;$('ovP').textContent='다른 파일럿이 끝날 때까지 기다리는 중…';
+  $('res').hidden=true;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('pick').hidden=true;$('chg').hidden=true;
+  $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=true;
+  setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},650);
+  mpCheckEnd();
+}
+function mpCheckEnd(){
+  if(mp.ended||state==='count')return;
+  const aliveR=rivals.filter(r=>r.alive).length,meAlive=state==='play';
+  if(meAlive&&aliveR===0){mpWon=true;mp.ended=true;state='over';Music.stop();mp.myT=Math.round(time*100)/100;
+    if(mp.ref)mp.ref.child('players/'+myId+'/t').set(mp.myT);mpResult()}
+  else if(!meAlive&&aliveR<=1){mp.ended=true;mpResult()}
+}
+function mpResult(){
+  if(mp.ref&&isHost())mp.ref.child('meta/state').set('lobby');
+  const all=[{name:myName,flag:flag,t:mp.myT,alive:mpWon,me:true}].concat(rivals.map(r=>({name:r.name,flag:r.flag,t:r.t||0,alive:r.alive})));
+  all.sort((a,b)=>(b.alive-a.alive)||(b.t-a.t));
+  const box=$('res');box.textContent='';
+  all.forEach((q,i)=>{const d=document.createElement('div');if(i===0)d.className='w';
+    const a=document.createElement('span');a.textContent=(i+1)+'위 '+flagOf(q.flag)+' '+q.name+(q.me?' (나)':'');
+    const b=document.createElement('span');b.textContent=q.alive&&!q.me?'생존':Number(q.t).toFixed(2)+'초';
+    d.append(a,b);box.appendChild(d)});
+  $('ovT').textContent=mpWon?'WIN!':'GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
+  $('ovP').hidden=true;box.hidden=false;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('pick').hidden=true;$('chg').hidden=true;
+  $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=false;$('go').textContent='방으로 돌아가기';
+  setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},mpWon?900:0);
+}
+$('mpB').addEventListener('click',mpOpen);
+$('mpClose').addEventListener('click',mpCloseList);
+$('mpLeave').addEventListener('click',mpLeave);
+$('mpStart').addEventListener('click',mpStartClick);
+$('mpName').addEventListener('keydown',e=>e.stopPropagation());
+$('mpName').addEventListener('keyup',e=>e.stopPropagation());
+
 // 인앱 브라우저에서 드래그가 창을 끌어내리지 않게: 순위판과 입력칸 밖의 터치 이동은 브라우저에 넘기지 않는다
-document.addEventListener('touchmove',e=>{if(!e.target.closest('#board')&&e.target.tagName!=='INPUT')e.preventDefault()},{passive:false});
+document.addEventListener('touchmove',e=>{if(!e.target.closest('#board,#mp')&&e.target.tagName!=='INPUT')e.preventDefault()},{passive:false});
 $('pad').addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 
 resize();reset();
