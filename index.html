@@ -184,6 +184,9 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #overlay.home #go{background:rgba(11,57,70,.92)}
 #overlay.home #mpB{background:rgba(58,36,8,.92)}
 #overlay.home #rankB{background:rgba(20,10,40,.92);color:var(--ink);border-color:#c77dff;box-shadow:0 0 18px rgba(199,125,255,.5)}
+#spec{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:4;display:flex;align-items:center;gap:10px;white-space:nowrap;
+  padding:8px 8px 8px 14px;border-radius:12px;background:rgba(5,3,15,.82);border:1.5px solid var(--amber);color:var(--amber);font-size:13px}
+#specB{padding:9px 12px;border-radius:8px;border:1.5px solid var(--cyan);background:#0b3946;color:var(--ink);font:500 12px var(--display);cursor:pointer}
 #homeB{padding:10px 20px;border-radius:8px;border:1.5px solid var(--dim);background:transparent;color:var(--ink);font:500 12px var(--display);cursor:pointer}
 #myRec{margin:0;color:var(--amber);font-size:14px;text-align:center}
 #board #reg{margin:2px 0}
@@ -199,6 +202,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     <canvas id="cv"></canvas>
     <div id="score"><small>TIME</small><b id="scoreV">0.00</b></div>
     <button id="pause" type="button" aria-label="일시정지">II</button>
+    <div id="spec" hidden><span id="specT"></span><button id="specB" type="button">방으로 나가기</button></div>
     <button id="snd" type="button" aria-label="음악 켜기/끄기" aria-pressed="true">♪</button>
   </div>
   <div id="pad" aria-label="터치패드">
@@ -267,7 +271,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='30';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='31';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -802,7 +806,7 @@ function mpLeave(){
   if(mp.ref){const r=mp.ref;r.child('players').off();r.child('meta').off();r.child('pos').off();
     r.child('players/'+myId).onDisconnect().cancel();r.child('pos/'+myId).onDisconnect().cancel();
     r.child('players/'+myId).remove();r.child('pos/'+myId).remove()}
-  mp.on=false;mp.ref=null;mp.ended=true;Music.stop();
+  mp.on=false;mp.ref=null;mp.ended=true;Music.stop();$('spec').hidden=true;
   if(rtdb)setTimeout(()=>{if(!mp.on)rtdb.goOffline()},800);
   $('mp').hidden=true;homeScreen();
 }
@@ -823,8 +827,9 @@ function renderRoom(){
   const mine=(mp.players[myId]||{}).flag||'';
   [...$('mpFlags').children].forEach(x=>x.setAttribute('aria-pressed',x.id==='mpflag-'+mine));
   const dup=Object.keys(cnt).some(f=>cnt[f]>1),allReady=ids.length>0&&ids.every(id=>mp.players[id].flag),host=isHost();
-  const ok=!dup&&allReady&&ids.length>=2;
-  $('mpMsg').textContent=dup?'같은 국기가 있습니다. 국기를 바꿔 주세요.':!allReady?'모두 국기를 고르면 시작할 수 있습니다.':
+  const playing=mp.meta.state==='play'&&!mp.ended;
+  const ok=!dup&&allReady&&ids.length>=2&&!playing;
+  $('mpMsg').textContent=playing?'게임이 진행 중입니다. 1등이 나오면 다시 시작할 수 있습니다.':dup?'같은 국기가 있습니다. 국기를 바꿔 주세요.':!allReady?'모두 국기를 고르면 시작할 수 있습니다.':
     ids.length<2?'두 명 이상 모이면 시작할 수 있습니다.':host?'게임 시작을 눌러 주세요.':'방장이 시작하기를 기다리는 중입니다.';
   $('mpStart').hidden=!host;$('mpStart').disabled=!ok;
 }
@@ -839,7 +844,7 @@ function mpOnMeta(s){
   if(mp.meta.state==='play'&&mp.meta.round!==mp.round&&mp.meta.startAt-(Date.now()+mp.off)>-3000)mpBegin();else renderRoom();
 }
 function mpBegin(){
-  mp.round=mp.meta.round;mp.startAt=mp.meta.startAt;mp.ended=false;mpWon=false;mp.myT=0;mp.pubT=0;
+  mp.view='game';$('spec').hidden=true;mp.round=mp.meta.round;mp.startAt=mp.meta.startAt;mp.ended=false;mpWon=false;mp.myT=0;mp.pubT=0;
   $('mp').hidden=true;$('overlay').hidden=true;
   reset();
   rivals=Object.keys(mp.players).filter(id=>id!==myId).map(id=>({id:id,flag:mp.players[id].flag,name:mp.players[id].name,
@@ -865,13 +870,10 @@ function mpTick(dt){
   if(mp.pubT<=0&&mp.ref){mp.pubT=.12;mp.ref.child('pos/'+myId).set({x:+(ship.x/W).toFixed(3),y:+(ship.y/H).toFixed(3)})}
   mpCheckEnd();
 }
-function mpDied(){
+function mpDied(){   // 탈락해도 화면을 가리지 않는다. 1등이 나올 때까지 관전하거나, 버튼으로 방에 나가 기다릴 수 있다
   mp.myT=Math.round(time*100)/100;
-  plain();$('ovT').textContent='GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
-  $('ovP').hidden=false;$('ovP').textContent='다른 파일럿이 끝날 때까지 기다리는 중…';
-  $('res').hidden=true;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('pick').hidden=true;$('chg').hidden=true;
-  $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=true;
-  setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},650);
+  objs=[];trail=[];nears=[];$('overlay').hidden=true;
+  $('specT').textContent='탈락 '+mp.myT.toFixed(2)+'초 · 관전 중';$('spec').hidden=false;mp.view='game';
   mpCheckEnd();
   if(mp.ref)mp.ref.child('players/'+myId).update({alive:false,t:mp.myT});   // 화면을 다 만든 뒤에 알린다
 }
@@ -883,7 +885,9 @@ function mpCheckEnd(){
   else if(!meAlive&&aliveR<=1){mp.ended=true;mpResult()}
 }
 function mpResult(){
-  if(mp.ref&&isHost())mp.ref.child('meta/state').set('lobby');
+  if(mp.ref)mp.ref.child('meta/state').set('lobby');
+  $('spec').hidden=true;
+  if(mp.view==='room'){renderRoom();return}   // 이미 방에 나가 있으면 결과 화면을 띄우지 않는다
   const all=[{name:myName,flag:flag,t:mp.myT,alive:mpWon,me:true}].concat(rivals.map(r=>({name:r.name,flag:r.flag,t:r.t||0,alive:r.alive})));
   all.sort((a,b)=>(b.alive-a.alive)||(b.t-a.t));
   const box=$('res');box.textContent='';
@@ -922,6 +926,7 @@ function enterInvited(){
   else $('mpLMsg').textContent='초대받은 방은 '+name+' 입니다. 아이디를 넣고 그 방을 눌러 주세요.';
   wantRoom='';
 }
+$('specB').addEventListener('click',()=>{mp.view='room';$('spec').hidden=true;showRoom()});
 $('mpB').addEventListener('click',mpOpen);
 $('mpClose').addEventListener('click',mpCloseList);
 $('mpLeave').addEventListener('click',mpLeave);
