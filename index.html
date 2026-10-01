@@ -245,6 +245,9 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 </div>
 
 <script>
+// 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
+(function(){var VER='20';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+  t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0)location.replace(location.pathname+'?v='+t)}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
 const cv=$('cv'),ctx=cv.getContext('2d');
