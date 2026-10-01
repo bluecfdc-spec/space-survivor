@@ -191,6 +191,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #myRec{margin:0;color:var(--amber);font-size:14px;text-align:center}
 #board #reg{margin:2px 0}
 #board #regMsg{margin:0;text-align:center;font-size:13px;color:var(--amber)}
+#overlay #chg,#overlay #rankB,#overlay #homeB{padding:12px 34px;min-width:210px;border-radius:10px;border-width:2px;border-style:solid;font:800 16px var(--display)}
 #go{margin-top:4px;padding:12px 34px;min-width:210px;border-radius:10px;border:2px solid var(--cyan);background:#0b3946;
   color:var(--ink);font:800 16px var(--display);cursor:pointer;box-shadow:0 0 18px rgba(34,230,255,.5)}
 </style>
@@ -271,7 +272,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='31';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='32';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
