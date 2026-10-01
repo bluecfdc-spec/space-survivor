@@ -349,7 +349,7 @@ function die(){
   setTimeout(()=>{if(state!=='over')return;
     $('ovT').textContent='GAME OVER';$('ovS').hidden=false;$('ovS').textContent=fin.toFixed(2)+'초';
     $('ovP').innerHTML=(rec?'<em>신기록!</em><br>':'')+'최고 기록 '+best.toFixed(2)+'초';
-    const g=gapText(fin);$('gap').hidden=!g;$('gap').textContent=g;
+    $('gap').hidden=true;try{showGap(fin);sendNation(fin)}catch(e){}
     $('regMsg').hidden=true;$('reg').hidden=true;
     if(db&&fin>mySent){pending=fin;if(myName)submit(fin);else $('reg').hidden=false}
     $('pick').hidden=true;$('chg').hidden=false;$('go').textContent='바로 시작';$('overlay').hidden=false},650);
@@ -518,9 +518,7 @@ if(!myId){myId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now()
   try{localStorage.setItem('ss_id',myId)}catch(e){}}
 try{
   if(window.firebase){firebase.initializeApp(CFG);db=firebase.firestore();
-    db.collection('scores').orderBy('time','desc').limit(100).onSnapshot(s=>{loaded=true;
-      rows=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderBoard()},()=>{});
-    db.collection('nations').onSnapshot(s=>{nat={};s.forEach(d=>{nat[d.id]=d.data()});renderBoard()},()=>{});}
+  } // 페이지를 열 때는 아무것도 읽지 않는다 (읽기 한도 절약). 순위판을 열 때와 죽었을 때만 필요한 만큼 읽는다
 }catch(e){db=null}
 function say(m){$('regMsg').hidden=false;$('regMsg').textContent=m}
 function submit(fin){
@@ -529,15 +527,35 @@ function submit(fin){
   db.collection('scores').doc(myId).set({name:myName,flag:f,time:fin,ts:ts}).then(()=>{
     mySent=fin;try{localStorage.setItem('ss_sent',fin)}catch(e){}say('순위판에 등록했습니다.')
   }).catch(()=>say('등록하지 못했습니다. 인터넷 연결을 확인하고 다음 판에 다시 시도합니다.'));
-  if(!nat[f]||fin>nat[f].time)db.collection('nations').doc(f).set({name:myName,time:fin,ts:ts}).catch(()=>{});
 }
-// 죽었을 때: 바로 앞 순위까지 몇 초 모자랐는지
-function gapText(fin){
-  if(!db||!loaded)return '';
-  const up=rows.filter(r=>r.id!==myId&&r.time>fin);
-  if(!up.length)return rows.length?'지금 기록이 전체 1위입니다!':'';
-  if(rows.length>=100&&fin<rows[rows.length-1].time)return (rows[rows.length-1].time-fin).toFixed(2)+'초만 더 버텼으면 100위 안';
-  return (up[up.length-1].time-fin).toFixed(2)+'초만 더 버텼으면 '+up.length+'위';
+// 국가 최고 기록: 이 기기에서 그 국기로 낸 최고 기록을 넘었을 때만 시도. 그 나라 기록보다 낮으면 규칙이 거절한다
+let natMine={};try{natMine=JSON.parse(localStorage.getItem('ss_nat')||'{}')||{}}catch(e){}
+function sendNation(fin){
+  if(!db||!myName||fin<=(natMine[flag]||0))return;
+  const f=flag;natMine[f]=fin;try{localStorage.setItem('ss_nat',JSON.stringify(natMine))}catch(e){}
+  db.collection('nations').doc(f).set({name:myName,time:fin,ts:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{});
+}
+function loadBoard(){
+  if(!db){renderBoard();return}
+  loaded=false;renderBoard();
+  Promise.all([db.collection('scores').orderBy('time','desc').limit(30).get(),db.collection('nations').get()]).then(r=>{
+    rows=r[0].docs.map(d=>Object.assign({id:d.id},d.data()));nat={};r[1].forEach(d=>{nat[d.id]=d.data()});loaded=true;renderBoard();
+  }).catch(()=>{loaded=true;renderBoard();$('bEmpty').hidden=false;$('bEmpty').textContent='순위를 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.'});
+}
+// 죽었을 때: 바로 앞 순위까지 몇 초 모자랐는지. 목록 전체 대신 "바로 위 기록"과 "위에 몇 명"만 묻는다 (읽기 2~3건)
+function showGap(fin){
+  if(!db)return;
+  const q=db.collection('scores').where('time','>',fin);
+  const cnt=typeof q.count==='function'?q.count().get():Promise.resolve(null);
+  Promise.all([q.orderBy('time','asc').limit(2).get(),cnt]).then(r=>{
+    if(state!=='over'||pending!==fin&&Math.round(time*100)/100!==fin)return;
+    const up=r[0].docs.filter(d=>d.id!==myId);let n=r[1]?r[1].data().count:0;const known=!!r[1];
+    if(r[0].docs.some(d=>d.id===myId)||mySent>fin)n-=1;
+    let t='';
+    if(!up.length)t='지금 기록이 전체 1위입니다!';
+    else t=(up[0].data().time-fin).toFixed(2)+'초만 더 버텼으면 '+(known&&n>=1?n+'위':'한 계단 위');
+    $('gap').textContent=t;$('gap').hidden=false;
+  }).catch(()=>{});
 }
 function mkRow(rk,fl,nm,sub,tm,cls){
   const r=document.createElement('div');r.className='row'+(cls?' '+cls:'');
@@ -560,7 +578,7 @@ function renderBoard(){
   $('bEmpty').textContent=!db?'순위판에 연결할 수 없습니다.':loaded?'아직 등록된 기록이 없습니다. 첫 기록의 주인공이 되어 보세요.':'불러오는 중…';
 }
 $('natMore').addEventListener('click',()=>{natAll=!natAll;renderBoard()});
-$('rankB').addEventListener('click',()=>{renderBoard();$('board').hidden=false});
+$('rankB').addEventListener('click',()=>{$('board').hidden=false;loadBoard()});
 $('bClose').addEventListener('click',()=>{$('board').hidden=true});
 $('regB').addEventListener('click',()=>{const n=$('nick').value.trim().slice(0,12);if(!n){$('nick').focus();return}
   myName=n;try{localStorage.setItem('ss_name',n)}catch(e){}$('reg').hidden=true;submit(pending)});
