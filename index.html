@@ -179,7 +179,11 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #mpList #rooms{gap:7px}
 #mpList #rooms button{padding:10px 6px;font-size:14px}
 #mpList #rooms button small{margin-top:3px}
-#mpList #phr button{flex:1 1 calc(25% - 6px);padding:7px 2px;font-size:11.5px;line-height:1.25;word-break:keep-all}
+#mp{display:flex;flex-direction:column}
+#mpList{flex:1 0 auto}
+#mpList #chat{flex:1 1 auto;height:auto;min-height:118px;font-size:14px}   /* 남는 세로 공간은 채팅창이 채운다 */
+#mpList #phr{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:7px}   /* 두 줄의 높이를 똑같이 */
+#mpList #phr button{padding:13px 2px;font-size:12.5px;line-height:1.3;word-break:keep-all}
 #mpLMsg:empty{display:none}
 #mpMsg,#mpLMsg{color:var(--amber);font-size:13px;text-align:center;min-height:18px}
 #mpName{align-self:flex-start;width:180px;padding:10px;border-radius:8px;border:1.5px solid var(--cyan);background:#06121a;color:var(--ink);
@@ -290,7 +294,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='39';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='40';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
