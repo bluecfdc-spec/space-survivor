@@ -294,7 +294,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='40';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='41';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -917,7 +917,7 @@ function mpOnMeta(s){
   if(mp.meta.state==='play'&&mp.meta.round!==mp.round&&mp.meta.startAt-(Date.now()+mp.off)>-3000)mpBegin();else renderRoom();
 }
 function mpBegin(){
-  mp.view='game';$('spec').hidden=true;mp.round=mp.meta.round;mp.startAt=mp.meta.startAt;mp.ended=false;mpWon=false;mp.myT=0;mp.pubT=0;
+  mp.view='game';mp.last=false;$('spec').hidden=true;mp.round=mp.meta.round;mp.startAt=mp.meta.startAt;mp.ended=false;mpWon=false;mp.myT=0;mp.pubT=0;
   $('mp').hidden=true;$('overlay').hidden=true;
   reset();
   rivals=Object.keys(mp.players).filter(id=>id!==myId).map(id=>({id:id,flag:mp.players[id].flag,name:mp.players[id].name,
@@ -950,28 +950,27 @@ function mpDied(){   // 탈락해도 화면을 가리지 않는다. 1등이 나�
   mpCheckEnd();
   if(mp.ref)mp.ref.child('players/'+myId).update({alive:false,t:mp.myT});   // 화면을 다 만든 뒤에 알린다
 }
-function mpCheckEnd(){
+function mpCheckEnd(){   // 모두가 죽어야 끝난다. 혼자 남아도 자기가 죽을 때까지 계속 플레이
   if(mp.ended||state==='count')return;
   const aliveR=rivals.filter(r=>r.alive).length,meAlive=state==='play';
-  if(meAlive&&aliveR===0){mpWon=true;mp.ended=true;state='over';Music.stop();mp.myT=Math.round(time*100)/100;
-    if(mp.ref)mp.ref.child('players/'+myId+'/t').set(mp.myT);mpResult()}
-  else if(!meAlive&&aliveR<=1){mp.ended=true;mpResult()}
+  if(meAlive&&aliveR===0&&!mp.last){mp.last=true;pops.push({x:W/2,y:H*.3,t:0,s:'LAST ONE!'})}
+  if(!meAlive&&aliveR===0){mp.ended=true;mpResult()}
 }
 function mpResult(){
   if(mp.ref)mp.ref.child('meta/state').set('lobby');
   $('spec').hidden=true;
   if(mp.view==='room'){renderRoom();return}   // 이미 방에 나가 있으면 결과 화면을 띄우지 않는다
   const all=[{name:myName,flag:flag,t:mp.myT,alive:mpWon,me:true}].concat(rivals.map(r=>({name:r.name,flag:r.flag,t:r.t||0,alive:r.alive})));
-  all.sort((a,b)=>(b.alive-a.alive)||(b.t-a.t));
+  all.sort((a,b)=>b.t-a.t);mpWon=!!all[0].me;   // 가장 오래 버틴 사람이 1등
   const box=$('res');box.textContent='';
   all.forEach((q,i)=>{const d=document.createElement('div');if(i===0)d.className='w';
     const a=document.createElement('span');a.textContent=(i+1)+'위 '+flagOf(q.flag)+' '+q.name+(q.me?' (나)':'');
-    const b=document.createElement('span');b.textContent=q.alive&&!q.me?'생존':Number(q.t).toFixed(2)+'초';
+    const b=document.createElement('span');b.textContent=Number(q.t).toFixed(2)+'초';
     d.append(a,b);box.appendChild(d)});
   plain();$('ovT').textContent=mpWon?'WIN!':'GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
   $('ovP').hidden=true;box.hidden=false;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('pick').hidden=true;$('chg').hidden=true;
   $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=false;$('go').textContent='방으로 돌아가기';
-  setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},mpWon?900:0);
+  setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},900);
 }
 // 친구 초대: 이 방으로 바로 들어오는 링크를 폰의 공유 창으로 보내고, 공유 창이 없으면 복사한다
 function inviteLink(){return location.origin+location.pathname+'?room='+mp.room}
