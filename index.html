@@ -246,7 +246,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='25';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='26';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0)location.replace(location.pathname+'?v='+t)}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -392,8 +392,7 @@ function hud(near){
 }
 function die(){
   state='over';Music.stop();
-  for(let i=0;i<40;i++){const a=Math.random()*7,s=40+Math.random()*220;
-    parts.push({x:ship.x,y:ship.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0,c:i%2?'#fff':'#ffa424'})}
+  boom(ship.x,ship.y);
   if(mp.on){mpDied();return}
   const fin=Math.round(time*100)/100;
   const rec=fin>best;if(rec){best=fin;try{localStorage.setItem('stargraze_best_t',best)}catch(e){}}
@@ -409,6 +408,7 @@ function die(){
 
 function draw(dt){
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(shakeT>0){shakeT-=dt;const q=shakeT/.3*9;ctx.fillStyle='#05030f';ctx.fillRect(0,0,W,H);ctx.translate((Math.random()-.5)*q,(Math.random()-.5)*q)}
   if(bg)ctx.drawImage(bg,0,0,W,H);
   ctx.lineCap='round';
   for(const o of objs){
@@ -432,7 +432,11 @@ function draw(dt){
   if(ship&&state!=='over')drawPlane(ship.x,ship.y,flag,1);
   for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.t+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
     if(p.t>.9){parts.splice(i,1);continue}
-    ctx.globalAlpha=1-p.t/.9;ctx.fillStyle=p.c;ctx.fillRect(p.x-2,p.y-2,4,4)}
+    ctx.globalAlpha=1-p.t/.9;ctx.fillStyle=p.c;const z=p.s||4;ctx.fillRect(p.x-z/2,p.y-z/2,z,z)}
+  for(let i=rings.length-1;i>=0;i--){const r=rings[i];r.t+=dt;if(r.t>.55){rings.splice(i,1);continue}if(r.t<0)continue;
+    const k=r.t/.55;ctx.globalAlpha=(1-k)*.9;ctx.strokeStyle=k<.3?'#ffffff':'#ffa424';ctx.lineWidth=7*(1-k)+1;
+    ctx.beginPath();ctx.arc(r.x,r.y,8+k*r.m,0,7);ctx.stroke();
+    if(k<.18){ctx.globalAlpha=(.18-k)/.18*.8;ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(r.x,r.y,26,0,7);ctx.fill()}}
   ctx.globalAlpha=1;
   for(let i=nears.length-1;i>=0;i--){const n=nears[i];n.t+=dt;if(n.t>.25||!ship){nears.splice(i,1);continue}
     const k=n.t/.25;ctx.globalAlpha=1-k;ctx.strokeStyle=n.c;ctx.lineWidth=3.5-k*2;ctx.shadowColor=n.c;ctx.shadowBlur=10;
@@ -452,16 +456,24 @@ function draw(dt){
 function drawPlane(x,y,f,al){
   ctx.save();ctx.globalAlpha=al;ctx.translate(Math.round(x),Math.round(y));
   const mine=al===1;   // 내 비행기만 형광 초록 테두리. 바깥 크기(반지름 9)와 판정은 그대로, 테두리는 안쪽으로 2px
-  if(mine){ctx.shadowColor='#39ff14';ctx.shadowBlur=10}
-  ctx.fillStyle=mine?'#39ff14':'#fff';ctx.beginPath();ctx.arc(0,0,9,0,7);ctx.fill();ctx.shadowBlur=0;
+  if(mine){const pu=.75+.25*Math.sin(performance.now()/140),g=ctx.createRadialGradient(0,0,7,0,0,21);
+    g.addColorStop(0,'rgba(57,255,20,'+(.85*pu)+')');g.addColorStop(.45,'rgba(57,255,20,'+(.3*pu)+')');g.addColorStop(1,'rgba(57,255,20,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,21,0,7);ctx.fill();          // 네온 후광 (판정과 무관)
+    ctx.shadowColor='#39ff14';ctx.shadowBlur=14*dpr}
+  ctx.fillStyle=mine?'#5dff3a':'#fff';ctx.beginPath();ctx.arc(0,0,9,0,7);ctx.fill();ctx.shadowBlur=0;
   ctx.beginPath();ctx.arc(0,0,mine?7:8,0,7);ctx.clip();
   const fi=flagImg(f);if(fi){const k=16/fi.h,w=fi.w*k;ctx.fillStyle='#fff';ctx.fillRect(-9,-9,18,18);ctx.drawImage(fi.c,fi.x,fi.y,fi.w,fi.h,-w/2,-8,w,16)}
   ctx.restore();
 }
 // ───── 경쟁자: 솔플은 CPU 4대(15초마다 한 대씩 탈락), 멀티는 다른 사람. 서로 부딪히지 않고 내 판정과 무관 ─────
 let rivals=[],mpWon=false,countN=0;
-function boom(x,y){for(let i=0;i<30;i++){const a=Math.random()*7,v=40+Math.random()*200;
-  parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,c:i%2?'#fff':'#ffa424'})}}
+let rings=[],shakeT=0;
+function boom(x,y){   // 폭발: 파편 70개 + 번지는 충격파 고리 2개 + 화면 흔들림 + 폭발음
+  const C=['#ffffff','#ffa424','#ff2d6b','#fff38a'];
+  for(let i=0;i<70;i++){const a=Math.random()*7,v=60+Math.random()*380;
+    parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,c:C[i%4],s:3+Math.random()*5})}
+  rings.push({x:x,y:y,t:0,m:95},{x:x,y:y,t:-.08,m:55});shakeT=.3;Music.boom();
+}
 function initCpus(){
   const fl=FLAGS.filter(c=>c!==flag).sort(()=>Math.random()-.5).slice(0,4);
   rivals=fl.map((c,i)=>({id:'cpu'+i,flag:c,x:W/2+Math.cos(i*Math.PI/2+Math.PI/4)*26,y:H/2+Math.sin(i*Math.PI/2+Math.PI/4)*26,vx:0,vy:0,alive:true,cpu:true,
@@ -543,6 +555,7 @@ const Music=(()=>{
           nbuf=ac.createBuffer(1,ac.sampleRate*.3,ac.sampleRate);const d=nbuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
         ac.resume();step=0;run()}catch(e){}},
     stop(){clearInterval(timer);timer=null},
+    boom(){if(!on||!ac)return;try{const t=ac.currentTime;kick(t);kick(t+.05);noise(t,.4,.45,250)}catch(e){}},   // 폭발음
     unlock(){const t=timer;this.start();if(!t)this.stop()},   // 사용자 탭 안에서 오디오를 미리 깨워 둔다
     resume(){if(on&&ac&&!timer)run()},
     toggle(){on=!on;if(!on)this.stop();return on},
