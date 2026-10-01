@@ -171,6 +171,16 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #phr{display:flex;flex-wrap:wrap;gap:6px}
 #phr button{flex:1 1 calc(50% - 6px);padding:10px 6px;border-radius:8px;border:1.5px solid var(--dim);background:#0c1c28;color:var(--ink);
   font:13px var(--mono);cursor:pointer}
+#mpList{gap:7px}
+#mpList h3{margin:2px 0 0}
+#mpNameRow{display:flex;align-items:center;gap:10px}
+#mpNameRow h3{margin:0;flex:none}
+#mpNameRow #mpName{flex:1;min-width:0;width:auto;padding:8px 10px}
+#mpList #rooms{gap:7px}
+#mpList #rooms button{padding:10px 6px;font-size:14px}
+#mpList #rooms button small{margin-top:3px}
+#mpList #phr button{flex:1 1 calc(25% - 6px);padding:7px 2px;font-size:11.5px;line-height:1.25;word-break:keep-all}
+#mpLMsg:empty{display:none}
 #mpMsg,#mpLMsg{color:var(--amber);font-size:13px;text-align:center;min-height:18px}
 #mpName{align-self:flex-start;width:180px;padding:10px;border-radius:8px;border:1.5px solid var(--cyan);background:#06121a;color:var(--ink);
   font:16px var(--mono);user-select:text;-webkit-user-select:text}
@@ -256,8 +266,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   <div id="mp" hidden>
     <div id="mpList">
       <header><h2>MULTIPLAY</h2><button class="mpb" id="mpClose" type="button">닫기</button></header>
-      <h3>아이디</h3>
-      <input id="mpName" type="text" maxlength="12" placeholder="아이디 (최대 12자)" aria-label="멀티플레이 아이디" autocomplete="off">
+      <div id="mpNameRow"><h3>아이디</h3><input id="mpName" type="text" maxlength="12" placeholder="아이디 (최대 12자)" aria-label="멀티플레이 아이디" autocomplete="off"></div>
       <h3>방 선택 · 한 방에 5명까지</h3>
       <div id="rooms"></div>
       <div id="mpLMsg"></div>
@@ -281,7 +290,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='38';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='39';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
