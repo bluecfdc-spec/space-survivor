@@ -272,7 +272,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='33';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='34';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -295,7 +295,7 @@ function flagOf(c){return String.fromCodePoint(0x1F1A5+c.charCodeAt(0),0x1F1A5+c
 FLAGS.forEach(c=>{const b=document.createElement('button');b.type='button';b.id='flag-'+c;b.textContent=flagOf(c);
   b.setAttribute('aria-label',c);b.setAttribute('aria-pressed',c===flag);
   b.addEventListener('click',()=>{flag=c;try{localStorage.setItem('stargraze_flag',c)}catch(e){}
-    [...$('flags').children].forEach(x=>x.setAttribute('aria-pressed',x===b));if(!mp.on&&state!=='play'&&state!=='count')start()});
+    [...$('flags').children].forEach(x=>x.setAttribute('aria-pressed',x===b))});
   $('flags').appendChild(b)});
 
 // 국기 이모지를 따로 그려 실제 그림 영역을 재고, 그 정중앙을 쓴다 (기기마다 글자 위치가 달라 잘리는 문제 방지)
@@ -759,10 +759,10 @@ function homeScreen(){
   $('go').hidden=false;$('go').textContent='출격';$('mpB').hidden=false;$('rankB').hidden=false;
   $('overlay').hidden=false;layoutHome();
 }
-// 국기 고르기: 국기를 누르면 바로 출격
+// 국기 고르기: 국기를 고른 뒤 출격 버튼으로 시작
 function showPick(){
   plain();$('ovT').hidden=true;$('ovS').hidden=true;$('res').hidden=true;$('gap').hidden=true;$('ovP').hidden=true;
-  $('pick').hidden=false;$('chg').hidden=true;$('go').hidden=true;$('mpB').hidden=true;$('rankB').hidden=true;
+  $('pick').hidden=false;$('chg').hidden=true;$('go').hidden=false;$('go').textContent='출격';$('mpB').hidden=true;$('rankB').hidden=true;
   $('homeB').hidden=false;$('homeB').textContent='뒤로';
   [...$('flags').children].forEach(x=>x.setAttribute('aria-pressed',x.id==='flag-'+flag));
   $('overlay').hidden=false;
