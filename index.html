@@ -272,7 +272,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='35';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='36';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -599,6 +599,11 @@ const Music=(()=>{
         o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(900,t+d);
         og.gain.setValueAtTime(.001,t);og.gain.exponentialRampToValueAtTime(.12,t+d*.5);og.gain.exponentialRampToValueAtTime(.001,t+d);
         o.connect(og);og.connect(master);o.start(t);o.stop(t+d+.05)}catch(e){}},
+    chime(){if(!on)return;this.unlock();if(!ac)return;try{const t=ac.currentTime;   // 메뉴 선택음: 맑은 종소리 두 음 (띠-룽)
+        [[88,0],[95,.09]].forEach(q=>{[[0,.16,'sine'],[12,.05,'sine'],[19,.025,'triangle']].forEach(h=>{
+          const o=ac.createOscillator(),g=ac.createGain(),st=t+q[1];o.type=h[2];o.frequency.value=f(q[0]+h[0]);
+          g.gain.setValueAtTime(.0001,st);g.gain.exponentialRampToValueAtTime(h[1],st+.012);g.gain.exponentialRampToValueAtTime(.0001,st+.75);
+          o.connect(g);g.connect(master);o.start(st);o.stop(st+.8)})})}catch(e){}},
     unlock(){const t=timer;this.start();if(!t)this.stop()},   // 사용자 탭 안에서 오디오를 미리 깨워 둔다
     resume(){if(on&&ac&&!timer)run()},
     toggle(){on=!on;if(!on)this.stop();return on},
@@ -950,6 +955,7 @@ $('mpName').addEventListener('keyup',e=>e.stopPropagation());
 document.addEventListener('touchmove',e=>{if(!e.target.closest('#board,#mp')&&e.target.tagName!=='INPUT')e.preventDefault()},{passive:false});
 $('pad').addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 
+$('overlay').addEventListener('click',e=>{if($('overlay').classList.contains('home')&&e.target.closest('#go,#mpB,#rankB'))Music.chime()},true);   // 첫 화면 버튼 세 개의 선택음
 resize();reset();
 homeScreen();window.__home=()=>{if($('overlay').classList.contains('home'))homeScreen()};
 try{enterInvited()}catch(e){}
