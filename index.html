@@ -169,6 +169,17 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #res{display:flex;flex-direction:column;gap:4px;font-size:14px;min-width:220px}
 #res div{display:flex;gap:8px;justify-content:space-between}
 #res .w{color:var(--amber)}
+#homeBg{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;z-index:-1;opacity:.9}
+#overlay.home{background:rgba(5,3,15,.25);gap:16px}
+#overlay.home #go,#overlay.home #mpB,#overlay.home #rankB{width:min(300px,82%);padding:22px 10px;border-radius:14px;border-width:2.5px;
+  font:800 22px var(--display);letter-spacing:.06em}
+#overlay.home #go{background:rgba(11,57,70,.92)}
+#overlay.home #mpB{background:rgba(58,36,8,.92)}
+#overlay.home #rankB{background:rgba(20,10,40,.92);color:var(--ink);border-color:#c77dff;box-shadow:0 0 18px rgba(199,125,255,.5)}
+#homeB{padding:10px 20px;border-radius:8px;border:1.5px solid var(--dim);background:transparent;color:var(--ink);font:500 12px var(--display);cursor:pointer}
+#myRec{margin:0;color:var(--amber);font-size:14px;text-align:center}
+#board #reg{margin:2px 0}
+#board #regMsg{margin:0;text-align:center;font-size:13px;color:var(--amber)}
 #go{margin-top:4px;padding:12px 34px;min-width:210px;border-radius:10px;border:2px solid var(--cyan);background:#0b3946;
   color:var(--ink);font:800 16px var(--display);cursor:pointer;box-shadow:0 0 18px rgba(34,230,255,.5)}
 </style>
@@ -190,15 +201,11 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     <div id="mark" hidden></div>
   </div>
   <div id="overlay">
+    <img id="homeBg" src="title.jpg" alt="" onerror="this.dataset.bad=1;this.hidden=true">
     <h1 id="ovT">SPACE SURVIVOR</h1>
     <div class="big" id="ovS" hidden>0</div>
     <p id="ovP">날아오는 미사일을 전부 피하세요.<br>몇 초를 버티는지가 기록입니다.<br>한 번 맞으면 끝입니다.</p>
     <p id="gap" hidden></p>
-    <div id="reg" hidden>
-      <input id="nick" type="text" maxlength="12" placeholder="아이디 (최대 12자)" aria-label="순위판에 올릴 아이디" autocomplete="off">
-      <button id="regB" type="button">기록 등록</button>
-    </div>
-    <p id="regMsg" hidden></p>
     <div id="pick">
       <div class="lbl">CHOOSE YOUR FLAG</div>
       <div id="flags" role="group" aria-label="국기 선택"></div>
@@ -207,11 +214,18 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     <button id="mpB" type="button">멀티플레이</button>
     <button id="chg" type="button" hidden>국가 바꾸기</button>
     <div id="res" hidden></div>
-    <button id="rankB" type="button">순위 보기</button>
+    <button id="rankB" type="button">스코어보드</button>
+    <button id="homeB" type="button" hidden>처음으로</button>
 
   </div>
   <div id="board" hidden>
-    <header><h2>RANKING</h2><button id="bClose" type="button">닫기</button></header>
+    <header><h2>SCOREBOARD</h2><button id="bClose" type="button">닫기</button></header>
+    <p id="myRec" hidden></p>
+    <div id="reg" hidden>
+      <input id="nick" type="text" maxlength="12" placeholder="아이디 (최대 12자)" aria-label="순위판에 올릴 아이디" autocomplete="off">
+      <button id="regB" type="button">기록 등록</button>
+    </div>
+    <p id="regMsg" hidden></p>
     <h3>NATIONS · 국가별 최고 기록</h3>
     <div class="rows" id="natL"></div>
     <button id="natMore" type="button">전체 국가 보기</button>
@@ -238,15 +252,11 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
       <button class="mpb" id="mpStart" type="button">게임 시작</button>
     </div>
   </div>
-  <div id="title" role="button" tabindex="0" aria-label="탭해서 시작">
-    <img src="title.jpg" alt="스페이스 서바이버. 탭해서 시작" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-    <div class="fb" hidden><h1>SPACE SURVIVOR</h1><p>TAP TO START</p></div>
-  </div>
 </div>
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='27';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='28';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0)location.replace(location.pathname+'?v='+t)}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -269,7 +279,7 @@ function flagOf(c){return String.fromCodePoint(0x1F1A5+c.charCodeAt(0),0x1F1A5+c
 FLAGS.forEach(c=>{const b=document.createElement('button');b.type='button';b.id='flag-'+c;b.textContent=flagOf(c);
   b.setAttribute('aria-label',c);b.setAttribute('aria-pressed',c===flag);
   b.addEventListener('click',()=>{flag=c;try{localStorage.setItem('stargraze_flag',c)}catch(e){}
-    [...$('flags').children].forEach(x=>x.setAttribute('aria-pressed',x===b))});
+    [...$('flags').children].forEach(x=>x.setAttribute('aria-pressed',x===b));if(!mp.on&&state!=='play'&&state!=='count')start()});
   $('flags').appendChild(b)});
 
 // 국기 이모지를 따로 그려 실제 그림 영역을 재고, 그 정중앙을 쓴다 (기기마다 글자 위치가 달라 잘리는 문제 방지)
@@ -402,9 +412,9 @@ function die(){
     $('ovT').textContent='GAME OVER';$('ovS').hidden=false;$('ovS').textContent=fin.toFixed(2)+'초';
     $('ovP').innerHTML=(rec?'<em>신기록!</em><br>':'')+'최고 기록 '+best.toFixed(2)+'초';
     $('gap').hidden=true;try{showGap(fin);sendNation(fin)}catch(e){}
-    $('regMsg').hidden=true;$('reg').hidden=true;
-    if(db&&fin>mySent){pending=fin;if(myName)submit(fin);else $('reg').hidden=false}
-    $('pick').hidden=true;$('chg').hidden=false;$('go').textContent='바로 시작';$('overlay').hidden=false},650);
+    if(db&&fin>mySent){pending=fin;if(myName)submit(fin)}   // 아이디가 없으면 스코어보드에 들어가서 직접 등록
+    plain();$('ovP').hidden=false;$('res').hidden=true;$('pick').hidden=true;$('chg').hidden=false;$('go').hidden=false;$('go').textContent='바로 시작';
+    $('rankB').hidden=false;$('mpB').hidden=true;$('homeB').hidden=false;$('homeB').textContent='처음으로';$('overlay').hidden=false},650);
 }
 
 function draw(dt){
@@ -574,13 +584,14 @@ function start(){reset();initCpus();mpWon=false;countN=0;state='count';mp.startA
 $('snd').addEventListener('click',()=>{const o=Music.toggle();$('snd').style.opacity=o?1:.4;$('snd').setAttribute('aria-pressed',o);
   if(o&&state==='play')Music.start()});
 function pause(){
-  if(state==='play'&&!mp.on){state='paused';Music.stop();$('ovT').textContent='PAUSED';$('ovS').hidden=true;
+  if(state==='play'&&!mp.on){state='paused';Music.stop();plain();$('ovP').hidden=false;$('res').hidden=true;$('go').hidden=false;$('rankB').hidden=true;$('mpB').hidden=true;$('ovT').textContent='PAUSED';$('ovS').hidden=true;
     $('ovP').textContent='잠시 멈췄습니다.';$('pick').hidden=true;$('chg').hidden=true;
     $('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('go').textContent='계속';$('overlay').hidden=false}
 }
-$('go').addEventListener('click',()=>{if(state==='count')return;if(state==='paused'){state='play';$('overlay').hidden=true;Music.resume()}else if(mp.on){$('overlay').hidden=true;showRoom()}else start()});
+$('go').addEventListener('click',()=>{if(state==='count')return;if(state==='paused'){state='play';$('overlay').hidden=true;Music.resume()}else if(mp.on){$('overlay').hidden=true;showRoom()}else if($('overlay').classList.contains('home'))showPick();else start()});
 $('pause').addEventListener('click',pause);
-$('chg').addEventListener('click',()=>{$('pick').hidden=false;$('chg').hidden=true});
+$('chg').addEventListener('click',showPick);
+$('homeB').addEventListener('click',homeScreen);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(mp.on&&state==='play')die();else pause()}});
 
 // 조이스틱
@@ -631,7 +642,7 @@ function submit(fin){
   if(!db||!myName)return;
   const ts=firebase.firestore.FieldValue.serverTimestamp(),f=flag;
   db.collection('scores').doc(myId).set({name:myName,flag:f,time:fin,ts:ts}).then(()=>{
-    mySent=fin;try{localStorage.setItem('ss_sent',fin)}catch(e){}say('순위판에 등록했습니다.')
+    mySent=fin;try{localStorage.setItem('ss_sent',fin)}catch(e){}say('순위판에 등록했습니다.');if(!$('board').hidden)loadBoard()
   }).catch(()=>say('등록하지 못했습니다. 인터넷 연결을 확인하고 다음 판에 다시 시도합니다.'));
 }
 // 국가 최고 기록: 이 기기에서 그 국기로 낸 최고 기록을 넘었을 때만 시도. 그 나라 기록보다 낮으면 규칙이 거절한다
@@ -684,15 +695,18 @@ function renderBoard(){
   $('bEmpty').textContent=!db?'순위판에 연결할 수 없습니다.':loaded?'아직 등록된 기록이 없습니다. 첫 기록의 주인공이 되어 보세요.':'불러오는 중…';
 }
 $('natMore').addEventListener('click',()=>{natAll=!natAll;renderBoard()});
-$('rankB').addEventListener('click',()=>{$('board').hidden=false;loadBoard()});
+function boardReg(){   // 아직 순위판에 안 올라간 내 최고 기록이 있으면 여기서 등록
+  const need=!!db&&best>mySent;
+  $('myRec').hidden=!need;if(need)$('myRec').textContent='내 최고 기록 '+best.toFixed(2)+'초 · 아직 등록되지 않았습니다';
+  $('reg').hidden=!need;$('nick').value=myName;$('regMsg').hidden=true;
+}
+$('rankB').addEventListener('click',()=>{$('board').hidden=false;boardReg();loadBoard()});
 $('bClose').addEventListener('click',()=>{$('board').hidden=true});
 $('regB').addEventListener('click',()=>{const n=$('nick').value.trim().slice(0,12);if(!n){$('nick').focus();return}
-  myName=n;try{localStorage.setItem('ss_name',n)}catch(e){}$('reg').hidden=true;submit(pending)});
+  myName=n;try{localStorage.setItem('ss_name',n)}catch(e){}$('reg').hidden=true;$('myRec').hidden=true;submit(Math.max(pending,best))});
 $('nick').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')$('regB').click()});
 $('nick').addEventListener('keyup',e=>e.stopPropagation());
-function closeTitle(){$('title').hidden=true}
-$('title').addEventListener('click',closeTitle);
-$('title').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.stopPropagation();e.preventDefault();closeTitle()}});
+homeScreen();
 renderBoard();
 
 // ───── 멀티플레이 (Realtime Database) ─────
@@ -707,11 +721,21 @@ function rt(){
   try{rtdb=firebase.database();rtdb.ref('.info/serverTimeOffset').on('value',s=>{mp.off=s.val()||0})}catch(e){rtdb=null}
   return rtdb;
 }
+function plain(){$('overlay').classList.remove('home');$('homeBg').hidden=true;$('ovT').hidden=false;$('homeB').hidden=true}
+// 첫 화면: 시작 그림 위에 큰 버튼 세 개 (출격 / 멀티플레이 / 스코어보드)
 function homeScreen(){
   state='ready';rivals=[];mpWon=false;
-  $('ovT').textContent='SPACE SURVIVOR';$('ovS').hidden=true;$('res').hidden=true;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;
-  $('ovP').hidden=false;$('ovP').innerHTML='날아오는 미사일을 전부 피하세요.<br>몇 초를 버티는지가 기록입니다.<br>한 번 맞으면 끝입니다.';
-  $('pick').hidden=false;$('chg').hidden=true;$('go').hidden=false;$('go').textContent='출격';$('rankB').hidden=false;$('mpB').hidden=false;
+  const bad=$('homeBg').dataset.bad;
+  $('overlay').classList.add('home');$('homeBg').hidden=!!bad;$('ovT').hidden=!bad;$('ovT').textContent='SPACE SURVIVOR';
+  $('ovS').hidden=true;$('res').hidden=true;$('gap').hidden=true;$('ovP').hidden=true;$('pick').hidden=true;$('chg').hidden=true;$('homeB').hidden=true;
+  $('go').hidden=false;$('go').textContent='출격';$('mpB').hidden=false;$('rankB').hidden=false;
+  $('overlay').hidden=false;
+}
+// 국기 고르기: 국기를 누르면 바로 출격
+function showPick(){
+  plain();$('ovT').hidden=true;$('ovS').hidden=true;$('res').hidden=true;$('gap').hidden=true;$('ovP').hidden=true;
+  $('pick').hidden=false;$('chg').hidden=true;$('go').hidden=true;$('mpB').hidden=true;$('rankB').hidden=true;
+  $('homeB').hidden=false;$('homeB').textContent='뒤로';
   [...$('flags').children].forEach(x=>x.setAttribute('aria-pressed',x.id==='flag-'+flag));
   $('overlay').hidden=false;
 }
@@ -822,7 +846,7 @@ function mpTick(dt){
 }
 function mpDied(){
   mp.myT=Math.round(time*100)/100;
-  $('ovT').textContent='GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
+  plain();$('ovT').textContent='GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
   $('ovP').hidden=false;$('ovP').textContent='다른 파일럿이 끝날 때까지 기다리는 중…';
   $('res').hidden=true;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('pick').hidden=true;$('chg').hidden=true;
   $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=true;
@@ -846,7 +870,7 @@ function mpResult(){
     const a=document.createElement('span');a.textContent=(i+1)+'위 '+flagOf(q.flag)+' '+q.name+(q.me?' (나)':'');
     const b=document.createElement('span');b.textContent=q.alive&&!q.me?'생존':Number(q.t).toFixed(2)+'초';
     d.append(a,b);box.appendChild(d)});
-  $('ovT').textContent=mpWon?'WIN!':'GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
+  plain();$('ovT').textContent=mpWon?'WIN!':'GAME OVER';$('ovS').hidden=false;$('ovS').textContent=mp.myT.toFixed(2)+'초';
   $('ovP').hidden=true;box.hidden=false;$('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('pick').hidden=true;$('chg').hidden=true;
   $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=false;$('go').textContent='방으로 돌아가기';
   setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},mpWon?900:0);
