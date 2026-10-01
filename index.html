@@ -162,6 +162,9 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #mpFlags button{width:44px;height:44px;padding:0;border-radius:50%;border:2px solid var(--panel-edge);background:#0c1c28;
   font-size:24px;line-height:1;cursor:pointer;font-family:"Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",sans-serif}
 #mpFlags button[aria-pressed="true"]{border-color:var(--cyan);background:#0b3946;box-shadow:0 0 14px var(--cyan)}
+#mpInv{background:transparent;border-color:var(--amber);color:var(--amber);padding:12px}
+#mpLink{padding:10px;border-radius:8px;border:1.5px solid var(--dim);background:#06121a;color:var(--ink);font:13px var(--mono);user-select:text;-webkit-user-select:text}
+#rooms button.want{border-color:var(--amber);box-shadow:0 0 16px rgba(255,164,36,.6)}
 #mpMsg,#mpLMsg{color:var(--amber);font-size:13px;text-align:center;min-height:18px}
 #mpName{align-self:flex-start;width:180px;padding:10px;border-radius:8px;border:1.5px solid var(--cyan);background:#06121a;color:var(--ink);
   font:16px var(--mono);user-select:text;-webkit-user-select:text}
@@ -250,14 +253,16 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
       <div id="mpFlags" role="group" aria-label="국기 선택"></div>
       <div id="mpMsg"></div>
       <button class="mpb" id="mpStart" type="button">게임 시작</button>
+      <button class="mpb" id="mpInv" type="button">친구 초대 (링크 보내기)</button>
+      <input id="mpLink" type="text" readonly hidden aria-label="초대 링크">
     </div>
   </div>
 </div>
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='28';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
-  t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0)location.replace(location.pathname+'?v='+t)}).catch(function(){})}catch(e){}})();
+(function(){var VER='29';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+  t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
 const cv=$('cv'),ctx=cv.getContext('2d');
@@ -875,6 +880,32 @@ function mpResult(){
   $('rankB').hidden=true;$('mpB').hidden=true;$('go').hidden=false;$('go').textContent='방으로 돌아가기';
   setTimeout(()=>{if(mp.on&&state==='over')$('overlay').hidden=false},mpWon?900:0);
 }
+// 친구 초대: 이 방으로 바로 들어오는 링크를 폰의 공유 창으로 보내고, 공유 창이 없으면 복사한다
+function inviteLink(){return location.origin+location.pathname+'?room='+mp.room}
+function copyInvite(){
+  const u=inviteLink(),done=()=>{$('mpMsg').textContent='초대 링크를 복사했습니다. 대화방에 붙여넣어 주세요.'};
+  const manual=()=>{const i=$('mpLink');i.hidden=false;i.value=u;i.focus();i.select();$('mpMsg').textContent='아래 링크를 길게 눌러 복사해 주세요.'};
+  try{navigator.clipboard.writeText(u).then(done,manual)}catch(e){manual()}
+}
+$('mpInv').addEventListener('click',()=>{
+  if(!mp.on)return;
+  const name=(ROOMS.find(r=>r[0]===mp.room)||['',''])[1];
+  if(navigator.share){navigator.share({title:'스페이스 서바이버',text:'스페이스 서바이버 '+name+' 방에서 한판 하자!',url:inviteLink()})
+    .catch(e=>{if(!e||e.name!=='AbortError')copyInvite()})}
+  else copyInvite();
+});
+$('mpLink').addEventListener('keydown',e=>e.stopPropagation());
+// 초대 링크(?room=방이름)로 들어온 경우: 아이디가 있으면 바로 입장, 없으면 아이디만 넣게 한다
+let wantRoom='';try{const r=new URLSearchParams(location.search).get('room');if(ROOMS.some(x=>x[0]===r))wantRoom=r}catch(e){}
+function enterInvited(){
+  if(!wantRoom)return;
+  mpOpen();if(!rtdb)return;
+  $('room-'+wantRoom).classList.add('want');
+  const name=ROOMS.find(r=>r[0]===wantRoom)[1];
+  if(myName)joinRoom(wantRoom);
+  else $('mpLMsg').textContent='초대받은 방은 '+name+' 입니다. 아이디를 넣고 그 방을 눌러 주세요.';
+  wantRoom='';
+}
 $('mpB').addEventListener('click',mpOpen);
 $('mpClose').addEventListener('click',mpCloseList);
 $('mpLeave').addEventListener('click',mpLeave);
@@ -887,6 +918,7 @@ document.addEventListener('touchmove',e=>{if(!e.target.closest('#board,#mp')&&e.
 $('pad').addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 
 resize();reset();
+try{enterInvited()}catch(e){}
 // 시작 화면 뒤에 보이는 예시 전장
 for(let i=0;i<26;i++){spawn();const o=objs[objs.length-1];const k=1.5+Math.random()*3;o.x+=o.vx*k;o.y+=o.vy*k}
 requestAnimationFrame(frame);
