@@ -165,6 +165,12 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #mpInv{background:transparent;border-color:var(--amber);color:var(--amber);padding:12px}
 #mpLink{padding:10px;border-radius:8px;border:1.5px solid var(--dim);background:#06121a;color:var(--ink);font:13px var(--mono);user-select:text;-webkit-user-select:text}
 #rooms button.want{border-color:var(--amber);box-shadow:0 0 16px rgba(255,164,36,.6)}
+#chat{height:118px;overflow-y:auto;border:1.5px solid var(--panel-edge);border-radius:8px;padding:8px 10px;font-size:13px;
+  display:flex;flex-direction:column;gap:4px;background:#06121a;text-align:left}
+#chat b{color:var(--cyan);font-weight:400}
+#phr{display:flex;flex-wrap:wrap;gap:6px}
+#phr button{flex:1 1 calc(50% - 6px);padding:10px 6px;border-radius:8px;border:1.5px solid var(--dim);background:#0c1c28;color:var(--ink);
+  font:13px var(--mono);cursor:pointer}
 #mpMsg,#mpLMsg{color:var(--amber);font-size:13px;text-align:center;min-height:18px}
 #mpName{align-self:flex-start;width:180px;padding:10px;border-radius:8px;border:1.5px solid var(--cyan);background:#06121a;color:var(--ink);
   font:16px var(--mono);user-select:text;-webkit-user-select:text}
@@ -255,6 +261,9 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
       <h3>방 선택 · 한 방에 5명까지</h3>
       <div id="rooms"></div>
       <div id="mpLMsg"></div>
+      <h3 id="mpOn">지금 멀티플레이에 –명</h3>
+      <div id="chat" aria-live="polite"></div>
+      <div id="phr" role="group" aria-label="보낼 말 고르기"></div>
     </div>
     <div id="mpRoom" hidden>
       <header><h2 id="mpTitle"></h2><button class="mpb" id="mpLeave" type="button">나가기</button></header>
@@ -272,7 +281,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='37';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='38';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -792,13 +801,46 @@ function refreshRooms(){
       $('room-'+r[0]).lastChild.textContent=n+'/5 · '+(playing?'게임 중':'대기 중')});
   }).catch(()=>{$('mpLMsg').textContent='방 정보를 불러오지 못했습니다.'});
 }
+// 로비: 접속자 수 + 정해진 문구만 보내는 채팅 (자유 입력 없음). 방 선택 화면에서만 켜지고 게임 중에는 꺼진다
+// lobby/pres/{기기ID} true   lobby/chat/{자동ID} {n:아이디, p:문구 번호, t:시각}
+const PHR=['한 판 하자!','나랑 같이 할 사람?','화성방으로 와','수성방으로 와','목성방으로 와','지구방으로 와','ㅋㅋㅋ','잘했다!'];
+let chatOn=false,lastSay=0;
+function lobbyOn(){
+  if(!rtdb||chatOn)return;chatOn=true;
+  const pr=rtdb.ref('lobby/pres/'+myId);pr.onDisconnect().remove();pr.set(true);
+  rtdb.ref('lobby/pres').on('value',s=>{$('mpOn').textContent='지금 멀티플레이에 '+s.numChildren()+'명'},()=>{});
+  $('chat').textContent='';
+  rtdb.ref('lobby/chat').limitToLast(20).on('child_added',s=>{
+    const v=s.val()||{};if(typeof v.p!=='number'||!PHR[v.p])return;
+    const d=document.createElement('div'),b=document.createElement('b');b.textContent=String(v.n||'').slice(0,12)+'  ';
+    d.appendChild(b);d.appendChild(document.createTextNode(PHR[v.p]));
+    const c=$('chat');c.appendChild(d);while(c.children.length>30)c.removeChild(c.firstChild);c.scrollTop=c.scrollHeight;
+  },()=>{});
+  // 10분 넘은 말은 지운다 (쌓이지 않게)
+  rtdb.ref('lobby/chat').orderByChild('t').endAt(Date.now()+mp.off-600000).limitToFirst(20).once('value')
+    .then(s=>{s.forEach(c=>{c.ref.remove()})}).catch(()=>{});
+}
+function lobbyOff(keepPres){
+  if(!rtdb||!chatOn)return;chatOn=false;rtdb.ref('lobby/pres').off();rtdb.ref('lobby/chat').off();
+  if(!keepPres)dropPres();
+}
+function dropPres(){if(!rtdb)return;const pr=rtdb.ref('lobby/pres/'+myId);pr.onDisconnect().cancel();pr.remove()}
+PHR.forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;
+  b.addEventListener('click',()=>{
+    if(!rtdb){return}
+    const n=$('mpName').value.trim().slice(0,12);
+    if(!n){$('mpLMsg').textContent='아이디를 먼저 입력해 주세요.';$('mpName').focus();return}
+    if(Date.now()-lastSay<2000){$('mpLMsg').textContent='조금 천천히 보내 주세요.';return}
+    lastSay=Date.now();$('mpLMsg').textContent='';myName=n;try{localStorage.setItem('ss_name',n)}catch(e){}
+    rtdb.ref('lobby/chat').push({n:n,p:i,t:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{$('mpLMsg').textContent='보내지 못했습니다.'});
+  });$('phr').appendChild(b)});
 function mpOpen(){
   Music.unlock();
   $('mp').hidden=false;$('mpList').hidden=false;$('mpRoom').hidden=true;$('mpName').value=myName;$('mpLMsg').textContent='';
   if(!rt()){$('mpLMsg').textContent='멀티플레이 서버를 준비하고 있습니다. 곧 열립니다.';return}
-  rtdb.goOnline();refreshRooms();clearInterval(mp.listT);mp.listT=setInterval(refreshRooms,4000);
+  rtdb.goOnline();lobbyOn();refreshRooms();clearInterval(mp.listT);mp.listT=setInterval(refreshRooms,4000);
 }
-function mpCloseList(){clearInterval(mp.listT);if(rtdb)rtdb.goOffline();$('mp').hidden=true}
+function mpCloseList(){clearInterval(mp.listT);lobbyOff(false);if(rtdb)setTimeout(()=>{if(!mp.on&&$('mp').hidden)rtdb.goOffline()},600);$('mp').hidden=true}
 function joinRoom(id){
   if(!rtdb)return;
   const n=$('mpName').value.trim().slice(0,12);
@@ -809,7 +851,7 @@ function joinRoom(id){
     const v=s.val()||{},pl=v.players||{},cnt=Object.keys(pl).length;
     if(cnt>=5&&!pl[myId]){$('mpLMsg').textContent='방이 가득 찼습니다.';return}
     if(cnt>0&&(v.meta||{}).state==='play'){$('mpLMsg').textContent='게임 중인 방입니다. 끝난 뒤에 들어갈 수 있습니다.';return}
-    clearInterval(mp.listT);
+    clearInterval(mp.listT);lobbyOff(true);
     mp.on=true;mp.room=id;mp.ref=ref;mp.players={};mp.meta={};mp.ended=true;mp.round=(v.meta||{}).round||0;
     if(cnt===0)ref.child('meta').set({state:'lobby',round:mp.round,startAt:0});
     const me=ref.child('players/'+myId);
@@ -824,7 +866,7 @@ function mpLeave(){
   if(mp.ref){const r=mp.ref;r.child('players').off();r.child('meta').off();r.child('pos').off();
     r.child('players/'+myId).onDisconnect().cancel();r.child('pos/'+myId).onDisconnect().cancel();
     r.child('players/'+myId).remove();r.child('pos/'+myId).remove()}
-  mp.on=false;mp.ref=null;mp.ended=true;Music.stop();$('spec').hidden=true;
+  mp.on=false;mp.ref=null;mp.ended=true;Music.stop();$('spec').hidden=true;dropPres();
   if(rtdb)setTimeout(()=>{if(!mp.on)rtdb.goOffline()},800);
   $('mp').hidden=true;homeScreen();
 }
