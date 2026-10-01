@@ -272,7 +272,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='34';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='35';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -590,6 +590,15 @@ const Music=(()=>{
     stop(){clearInterval(timer);timer=null},
     boom(){if(!on||!ac)return;try{const t=ac.currentTime;kick(t);kick(t+.05);noise(t,.4,.45,250)}catch(e){}},   // 폭발음
     beep(){if(!on||!ac)return;try{tone('square',81,ac.currentTime,.16,.14)}catch(e){}},   // 카운트다운 소리
+    launch(){if(!on||!ac)return;try{const t=ac.currentTime,d=.7;   // 출격음: 바람 소리가 낮은 데서 높은 데로 휩쓸고, 엔진음이 같이 치솟는다
+        const n=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();n.buffer=nbuf;n.loop=true;
+        f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(250,t);f.frequency.exponentialRampToValueAtTime(5000,t+d);
+        g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.55,t+d*.55);g.gain.exponentialRampToValueAtTime(.001,t+d);
+        n.connect(f);f.connect(g);g.connect(master);n.start(t);n.stop(t+d+.05);
+        const o=ac.createOscillator(),og=ac.createGain();o.type='sawtooth';
+        o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(900,t+d);
+        og.gain.setValueAtTime(.001,t);og.gain.exponentialRampToValueAtTime(.12,t+d*.5);og.gain.exponentialRampToValueAtTime(.001,t+d);
+        o.connect(og);og.connect(master);o.start(t);o.stop(t+d+.05)}catch(e){}},
     unlock(){const t=timer;this.start();if(!t)this.stop()},   // 사용자 탭 안에서 오디오를 미리 깨워 둔다
     resume(){if(on&&ac&&!timer)run()},
     toggle(){on=!on;if(!on)this.stop();return on},
@@ -598,7 +607,7 @@ const Music=(()=>{
       tone('square',96,t,.05,.07);tone('square',103,t+.04,.07,.06)}
   };
 })();
-function start(){reset();initCpus();mpWon=false;countN=0;state='count';mp.startAt=Date.now()+mp.off+3000;$('overlay').hidden=true;Music.unlock()}   // 3,2,1 뒤에 시작
+function start(){reset();initCpus();mpWon=false;countN=0;state='count';mp.startAt=Date.now()+mp.off+3000;$('overlay').hidden=true;Music.unlock();Music.launch()}   // 3,2,1 뒤에 시작
 $('snd').addEventListener('click',()=>{const o=Music.toggle();$('snd').style.opacity=o?1:.4;$('snd').setAttribute('aria-pressed',o);
   if(o&&state==='play')Music.start()});
 function pause(){
