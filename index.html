@@ -84,7 +84,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   box-shadow:0 0 16px var(--cyan);pointer-events:none}
 
 #field{flex:1 1 0;touch-action:none}
-#pad{flex:1 1 0;min-height:0;position:relative;overflow:hidden;touch-action:none;cursor:crosshair;
+#pad{flex:0 0 calc(50% - 80px);min-height:0;position:relative;overflow:hidden;touch-action:none;cursor:crosshair;
   background:
     linear-gradient(rgba(34,230,255,.09) 1px,transparent 1px) 0 0/100% 40px,
     linear-gradient(90deg,rgba(34,230,255,.09) 1px,transparent 1px) 0 0/40px 100%,
@@ -246,7 +246,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='26';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='27';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0)location.replace(location.pathname+'?v='+t)}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -368,7 +368,8 @@ function update(dt){
   trail.push({x:ship.x,y:ship.y});if(trail.length>32)trail.shift();   // 지나온 길 (흰 꼬리)
   // 화면의 탄 수를 일정하게 유지: 30발로 시작해 1초에 1.5발씩 늘고, 나간 만큼 바로 다시 들어온다
   const t2=time-1.5;   // 시작 1.5초는 빈 화면, 그 뒤 2초에 걸쳐 30발까지 채우고 이후 1초에 1.5발씩 는다
-  const want=t2<0?0:Math.min(120,Math.min(30,t2*15)+Math.max(0,t2-2)*1.5);
+  const K=H/((H+$('pad').clientHeight)/2);   // 전장이 넓어진 비율만큼 탄 수를 늘려 밀도를 유지
+  const want=t2<0?0:K*Math.min(120,Math.min(30,t2*15)+Math.max(0,t2-2)*1.5);
   for(let i=0;i<4&&objs.length<want;i++)spawn();
   const lv=Math.floor(time/30);
   Music.tempo(Math.min(2,lv));               // 30초, 60초를 넘기면 음악이 한 단계씩 빨라진다
@@ -449,8 +450,11 @@ function draw(dt){
     for(let j=0;j<12;j++){const a=j/12*Math.PI*2,r1=30+k*14,r2=r1+6;ctx.beginPath();
       ctx.moveTo(p.x+Math.cos(a)*r1*1.3,p.y-7-k*26+Math.sin(a)*r1*.7);ctx.lineTo(p.x+Math.cos(a)*r2*1.3,p.y-7-k*26+Math.sin(a)*r2*.7);ctx.stroke()}}
   ctx.globalAlpha=1;
-  if(state==='count'){ctx.font='800 84px Orbitron, Arial Black, sans-serif';ctx.textAlign='center';ctx.fillStyle='#d8f6ff';
-    ctx.shadowColor='#22e6ff';ctx.shadowBlur=20;ctx.fillText(countN,W/2,H/2+30);ctx.shadowBlur=0}
+  if(state==='count'&&countN>0){const z=96+countF*70;   // 숫자가 크게 나타났다가 줄어들며 다음 숫자로
+    ctx.font='800 '+z+'px Orbitron, Arial Black, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.globalAlpha=.35+.65*Math.min(1,countF*2.2);ctx.fillStyle=countN===1?'#ff2d6b':'#d8f6ff';
+    ctx.shadowColor=countN===1?'#ff2d6b':'#22e6ff';ctx.shadowBlur=24*dpr;ctx.fillText(countN,W/2,H/2);
+    ctx.shadowBlur=0;ctx.globalAlpha=1;ctx.textBaseline='alphabetic'}
 }
 // 국기 점 기체 (방향 없음). al<1 이면 반투명한 경쟁자
 function drawPlane(x,y,f,al){
@@ -466,7 +470,7 @@ function drawPlane(x,y,f,al){
   ctx.restore();
 }
 // ───── 경쟁자: 솔플은 CPU 4대(15초마다 한 대씩 탈락), 멀티는 다른 사람. 서로 부딪히지 않고 내 판정과 무관 ─────
-let rivals=[],mpWon=false,countN=0;
+let rivals=[],mpWon=false,countN=0,countF=0;
 let rings=[],shakeT=0;
 function boom(x,y){   // 폭발: 파편 70개 + 번지는 충격파 고리 2개 + 화면 흔들림 + 폭발음
   const C=['#ffffff','#ffa424','#ff2d6b','#fff38a'];
@@ -517,7 +521,8 @@ let last=0;
 function frame(t){
   const dt=Math.min(.05,(t-last)/1000||0);last=t;
   if(state==='count'){const left=mp.startAt-(Date.now()+mp.off);
-    if(left<=0){state='play';Music.start()}else countN=Math.ceil(left/1000)}
+    if(left<=0){state='play';Music.start()}
+    else{const n=Math.min(3,Math.ceil(left/1000));if(n!==countN){countN=n;Music.beep()}countF=(left%1000)/1000}}
   if(state==='play')update(dt);
   draw(state==='paused'?0:dt);
   requestAnimationFrame(frame);
@@ -556,6 +561,7 @@ const Music=(()=>{
         ac.resume();step=0;run()}catch(e){}},
     stop(){clearInterval(timer);timer=null},
     boom(){if(!on||!ac)return;try{const t=ac.currentTime;kick(t);kick(t+.05);noise(t,.4,.45,250)}catch(e){}},   // 폭발음
+    beep(){if(!on||!ac)return;try{tone('square',81,ac.currentTime,.16,.14)}catch(e){}},   // 카운트다운 소리
     unlock(){const t=timer;this.start();if(!t)this.stop()},   // 사용자 탭 안에서 오디오를 미리 깨워 둔다
     resume(){if(on&&ac&&!timer)run()},
     toggle(){on=!on;if(!on)this.stop();return on},
@@ -564,7 +570,7 @@ const Music=(()=>{
       tone('square',96,t,.05,.07);tone('square',103,t+.04,.07,.06)}
   };
 })();
-function start(){reset();initCpus();mpWon=false;state='play';$('overlay').hidden=true;Music.start()}
+function start(){reset();initCpus();mpWon=false;countN=0;state='count';mp.startAt=Date.now()+mp.off+3000;$('overlay').hidden=true;Music.unlock()}   // 3,2,1 뒤에 시작
 $('snd').addEventListener('click',()=>{const o=Music.toggle();$('snd').style.opacity=o?1:.4;$('snd').setAttribute('aria-pressed',o);
   if(o&&state==='play')Music.start()});
 function pause(){
@@ -572,7 +578,7 @@ function pause(){
     $('ovP').textContent='잠시 멈췄습니다.';$('pick').hidden=true;$('chg').hidden=true;
     $('gap').hidden=true;$('reg').hidden=true;$('regMsg').hidden=true;$('go').textContent='계속';$('overlay').hidden=false}
 }
-$('go').addEventListener('click',()=>{if(state==='paused'){state='play';$('overlay').hidden=true;Music.resume()}else if(mp.on){$('overlay').hidden=true;showRoom()}else start()});
+$('go').addEventListener('click',()=>{if(state==='count')return;if(state==='paused'){state='play';$('overlay').hidden=true;Music.resume()}else if(mp.on){$('overlay').hidden=true;showRoom()}else start()});
 $('pause').addEventListener('click',pause);
 $('chg').addEventListener('click',()=>{$('pick').hidden=false;$('chg').hidden=true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(mp.on&&state==='play')die();else pause()}});
