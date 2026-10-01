@@ -272,7 +272,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='32';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='33';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -348,7 +348,7 @@ function spawn(k){
   else if(side===2){x=Math.random()*W;y=-M}else{x=Math.random()*W;y=H+M}
   // 나오는 순간의 비행기 위치를 겨냥. 그 뒤로는 직진만 하고 추적하지 않는다
   // 조준을 살짝 흩뜨려 한 점으로 모이지 않게 한다 (저격탄은 정확히 겨냥)
-  const a=Math.atan2(ship.y-y,ship.x-x)+(k?0:(Math.random()-.5)*.7),sp=k?60*k:60+Math.random()*80;
+  const a=Math.atan2(ship.y-y,ship.x-x)+(k?0:(Math.random()-.5)*.7),sp=k?60*k:(60+Math.random()*80)*(.8+.2*Math.min(1,time/30));   // 초반 30초는 속도도 조금 느리게 시작
   objs.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:5,c:COLORS[Math.random()*3|0],g:false});
 }
 // 패턴: 한쪽에서 밀려오는 빛의 벽, 빈틈 하나. 레이더에 먼저 찍힌다.
@@ -395,7 +395,9 @@ function update(dt){
   // 화면의 탄 수를 일정하게 유지: 30발로 시작해 1초에 1.5발씩 늘고, 나간 만큼 바로 다시 들어온다
   const t2=time-1.5;   // 시작 1.5초는 빈 화면, 그 뒤 2초에 걸쳐 30발까지 채우고 이후 1초에 1.5발씩 는다
   const K=H/((H+$('pad').clientHeight)/2);   // 전장이 넓어진 비율만큼 탄 수를 늘려 밀도를 유지
-  const want=t2<0?0:K*Math.min(120,Math.min(30,t2*15)+Math.max(0,t2-2)*1.5);
+  // 난이도 곡선: 1.5초 여유 → 6발로 시작 → 30초에 30발(예전 시작 수준) → 이후 1초에 1.5발씩 늘어 90초에 최대 120발
+  const base=t2<0?0:time<30?Math.min(6+24*t2/28.5,t2*8):Math.min(120,30+(time-30)*1.5);
+  const want=K*base;
   for(let i=0;i<4&&objs.length<want;i++)spawn();
   const lv=Math.floor(time/30);
   Music.tempo(Math.min(2,lv));               // 30초, 60초를 넘기면 음악이 한 단계씩 빨라진다
