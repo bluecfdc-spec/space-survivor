@@ -185,6 +185,15 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #mpList #phr{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:7px}   /* 두 줄의 높이를 똑같이 */
 #mpList #phr button{padding:13px 2px;font-size:12.5px;line-height:1.3;word-break:keep-all}
 #mpLMsg:empty{display:none}
+/* 같은 국기를 고른 사람: 빨간 네온으로 표시 */
+#mpPl .row.dup{border:1.5px solid var(--red);border-radius:8px;background:rgba(255,45,107,.14);
+  box-shadow:0 0 12px var(--red),0 0 10px rgba(255,45,107,.45) inset;margin:4px 0;animation:dupPulse 1s ease-in-out infinite}
+#mpPl .row.dup .nm,#mpPl .row.dup .tm{color:#ff6b93;text-shadow:0 0 8px var(--red)}
+#mpPl .row.dup .nm small{color:#ff9db8}
+#mpFlags button.dup{border-color:var(--red);box-shadow:0 0 14px var(--red),0 0 8px rgba(255,45,107,.6) inset;background:#3a0b1c}
+#mpMsg.dup{color:#ff6b93;text-shadow:0 0 10px var(--red);font-size:14px}
+@keyframes dupPulse{50%{box-shadow:0 0 20px var(--red),0 0 14px rgba(255,45,107,.6) inset}}
+@media (prefers-reduced-motion:reduce){#mpPl .row.dup{animation:none}}
 #mpMsg,#mpLMsg{color:var(--amber);font-size:13px;text-align:center;min-height:18px}
 #mpName{align-self:flex-start;width:180px;padding:10px;border-radius:8px;border:1.5px solid var(--cyan);background:#06121a;color:var(--ink);
   font:16px var(--mono);user-select:text;-webkit-user-select:text}
@@ -294,7 +303,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 <script>
 // 새 버전 확인: 브라우저(특히 카톡 안 브라우저)가 예전 페이지를 저장해 두고 보여주는 것을 막는다
-(function(){var VER='41';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
+(function(){var VER='42';try{fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():''}).then(function(t){
   t=(t||'').trim();if(t&&t!==VER&&location.search.indexOf('v='+t)<0){var q=new URLSearchParams(location.search);q.set('v',t);location.replace(location.pathname+'?'+q.toString())}}).catch(function(){})}catch(e){}})();
 (function(){
 const $=id=>document.getElementById(id);
@@ -896,12 +905,13 @@ function renderRoom(){
   $('mpTitle').textContent=(ROOMS.find(r=>r[0]===mp.room)||['',''])[1];
   const cnt={};ids.forEach(id=>{const f=mp.players[id].flag;if(f)cnt[f]=(cnt[f]||0)+1});
   ids.forEach((id,i)=>{const q=mp.players[id];
-    pl.appendChild(mkRow(i===0?'★':'',q.flag?flagOf(q.flag):'',q.name||'',i===0?'방장':'',q.flag?(cnt[q.flag]>1?'국기 중복':'준비 완료'):'고르는 중',id===myId?'me':''))});
+    pl.appendChild(mkRow(i===0?'★':'',q.flag?flagOf(q.flag):'',q.name||'',i===0?'방장':'',q.flag?(cnt[q.flag]>1?'국기 중복':'준비 완료'):'고르는 중',(id===myId?'me':'')+(q.flag&&cnt[q.flag]>1?' dup':'')))});
   const mine=(mp.players[myId]||{}).flag||'';
-  [...$('mpFlags').children].forEach(x=>x.setAttribute('aria-pressed',x.id==='mpflag-'+mine));
+  [...$('mpFlags').children].forEach(x=>{x.setAttribute('aria-pressed',x.id==='mpflag-'+mine);x.classList.toggle('dup',(cnt[x.id.slice(7)]||0)>1)});
   const dup=Object.keys(cnt).some(f=>cnt[f]>1),allReady=ids.length>0&&ids.every(id=>mp.players[id].flag),host=isHost();
   const playing=mp.meta.state==='play'&&!mp.ended;
   const ok=!dup&&allReady&&ids.length>=2&&!playing;
+  $('mpMsg').classList.toggle('dup',dup&&!playing);
   $('mpMsg').textContent=playing?'게임이 진행 중입니다. 1등이 나오면 다시 시작할 수 있습니다.':dup?'같은 국기가 있습니다. 국기를 바꿔 주세요.':!allReady?'모두 국기를 고르면 시작할 수 있습니다.':
     ids.length<2?'두 명 이상 모이면 시작할 수 있습니다.':host?'게임 시작을 눌러 주세요.':'방장이 시작하기를 기다리는 중입니다.';
   $('mpStart').hidden=!host;$('mpStart').disabled=!ok;
